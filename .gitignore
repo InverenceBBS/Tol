@@ -1,0 +1,13 @@
+.archive
+.DS_Store
+.idea
+.vscode
+.venv
+.pytest_cache
+.history
+.mypy_cache
+.ruff_cache
+.ruff_cache
+.ruff_cache
+.ruff_cache
+.ruff_cache
