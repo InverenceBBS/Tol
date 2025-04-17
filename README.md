@@ -1,2 +1,2 @@
-# Tol
-Migration of tol frm Gitlab
+# TOL
+TOL Migration from Gitlab
