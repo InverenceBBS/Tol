@@ -1,0 +1,40 @@
+/* -*- mode: C++ -*- */
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : TolPackage.tol
+// PURPOSE: Defines NameBlock TolPackage
+//////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+NameBlock TolPackage = 
+//////////////////////////////////////////////////////////////////////////////
+[[
+  Text _.autodoc.name = "TolPackage";
+  Text _.autodoc.description = "Utilidades para el manejo de paquetes TOL: "
+    "instalación, actualización, borrado, consulta de estado, etc.";
+  Set _.autodoc.keys = [["TOL", "Package", "Repository", "Modularity"]];
+  Set _.autodoc.authors = [["vdebuen@tol-project.org", 
+    "pgea@bayesforecast.com"]];
+  // La versión 4 aúna las vesiones 2 y 3 y es válida desde tol.3.1
+  Text _.autodoc.minTolVersion = "v3.1";
+  Real _.autodoc.version.high = 4;
+  Real _.autodoc.version.low = 4;
+
+  Text _.version = ""<<_.autodoc.version.high<<"."<<_.autodoc.version.low;
+  // Se usa la version alta para todas las rutas locales
+  Text _.localRoot = Replace(TolAppDataPath+"TolPackage."
+    <<_.autodoc.version.high<<"/","\\","/");
+
+  Class @Catalog;
+  Class @LocalBlock;
+
+  #Embed "common.tol";
+  #Embed "def_localblock.tol";
+  #Embed "def_catalog.tol";
+  #Embed "TolVersion.tol";
+  #Embed "TolPlatform.tol";
+  #Embed "client.tol";
+  #Embed "server.tol";
+  #Embed "packager.tol";
+  #Embed "builder.tol"
+]];
+//////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,149 @@
+//////////////////////////////////////////////////////////////////////////////
+// PURPOSE: Creates useful functions and objects.  
+// 
+// WARNING: Some of this definition are used in the internal code of TolBase 
+//          and any change can originate unexpected errors and wrong working  
+//          for some TOL files. 
+//
+//          Note that this file cannot be compiled in TolBase because it's 
+//          internally compiled.    
+//
+//          So, If you decides, under your own responsability, to make changes
+//          in this file, those will not take effect until next executation of
+//          TolBase.    
+//
+//////////////////////////////////////////////////////////////////////////////
+
+//Set Include("TolConfigManager/TolConfigManager.tol");
+
+//////////////////////////////////////////////////////////////////////////////
+  Anything Error(Text message)
+//////////////////////////////////////////////////////////////////////////////
+{
+  WriteLn(message,"E")
+};
+//////////////////////////////////////////////////////////////////////////////
+  PutDescription(I2(
+  "Shows an error message.",
+  "Muestra un mensaje de error."),
+  Error);
+//////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+  Anything Warning(Text message)
+//////////////////////////////////////////////////////////////////////////////
+{
+  WriteLn(message,"W")
+};
+//////////////////////////////////////////////////////////////////////////////
+  PutDescription(I2(
+  "Shows a warning message.",
+  "Muestra un mensaje de atención."),
+  Error);
+//////////////////////////////////////////////////////////////////////////////
+
+NameBlock If(ObjectExist("NameBlock","TolConfigManager"),
+  TolConfigManager,
+  Include("TolConfigManager/TolConfigManager.tol")[1]
+);
+
+//////////////////////////////////////////////////////////////////////////////
+//OIS doc info
+//////////////////////////////////////////////////////////////////////////////
+Set 
+{
+  Text PutValue(Ois.DefDoc->Name,"tolcore");
+  Text PutValue(Ois.DefDoc->Subject,I2(
+    "TOL Standard Library",
+    "Librería estandar de TOL"));
+  Text PutValue(Ois.DefDoc->Keys,I2(
+    "Standard,Library,Functions",
+    "Librería,estandar,Funciones"));
+  Text PutValue(Ois.DefDoc->Abstract,I2(
+      "Generic functions and objects extendedly used in TOL and needed for "
+      "most of main TOL applications.",
+      "Funciones y objetos de carácter general y de uso extendido que se "
+      "presuponen cargadas de antemano para muchas de las características "
+      "y en la mayoría de las aplicaciones de TOL."));
+  Text PutValue(Ois.DefDoc->Authors,I2(
+    "TOL-Project Development Team",  
+    "Equipo de Desarrollo de TOL-Project"));
+  Text PutValue(Ois.DefDoc->Distribution,I2(
+    "Public domain",                 
+    "Dominio público"));
+  Text PutValue(Ois.DefDoc->Repository,"www.tol-project.org");
+  Ois.DefDoc
+};
+
+//////////////////////////////////////////////////////////////////////////////
+//Packages tree of TolCore is loaded as local to allow browsing on inspector 
+//object
+//////////////////////////////////////////////////////////////////////////////
+Set TolCore.Tree = 
+{
+  Do Ois.UseModule("_tolcore.tol")
+  //Do Include("_tolcore.tol")
+};
+
+//////////////////////////////////////////////////////////////////////////////
+// Root NameBlock for library
+//////////////////////////////////////////////////////////////////////////////
+NameBlock TolCore = 
+{ 
+  Set TolCore.Tools = { Do Include("various/_tools.tol") };
+  Code PlainNamedObjects = TolCore.Tools::PlainNamedObjects;
+  //CoreLib structures, functions, and variables are collected in a plain set
+  Set plain = PlainNamedObjects(TolCore.Tree);
+  //and converted to a NameBlock to allow specific access with prefix CoreLib::
+
+  SetToNameBlock(plain) 
+};
+
+
+//////////////////////////////////////////////////////////////////////////////
+//Backward compatility
+//////////////////////////////////////////////////////////////////////////////
+
+//Publishing NameBlock StdLib to allow calling without prefix StdLib:: until
+//tol v.1.1.7 will be released and NameBlock became mandatory
+Real TolCore.Using = UsingNameBlock(TolCore);
+
+Real CMsg::Phase::reset(0);
+Real CMsg::Coded::reset(0);
+
+Text PutRealFormat("%.15lg");
+Text PutTableRealFormat(8,4);
+
+//////////////////////////////////////////////////////////////////////////////
+// OIS initialization
+//////////////////////////////////////////////////////////////////////////////
+//OIS is now a mature and mandatory feature of TOL
+Real Ois.Implemented  = True;
+Code Ois.ModuleLoader = FindCode("Set","Ois.UseModule");
+
+//////////////////////////////////////////////////////////////////////////////
+// TolPackage Client initialization
+//////////////////////////////////////////////////////////////////////////////
+Real TolPackage::Client::Initialize(0);
+
+//////////////////////////////////////////////////////////////////////////////
+// Tpa initialization
+//////////////////////////////////////////////////////////////////////////////
+Set { Tpa.Hosts = If(TOLAppName!="tolsh",Copy(Empty),
+  TolCore::Tpa::loadLastHosts(0)
+)};
+
+//////////////////////////////////////////////////////////////////////////////
+//Checks TOL release every day to detect obsolete versions
+//////////////////////////////////////////////////////////////////////////////
+Real CheckTOLReleaseIsUpdated = If(
+TolConfigManager::Config::Upgrading::TolVersion::CheckAllowed,
+{
+  TolCore::CheckTOLRelease(
+    TolConfigManager::Config::Upgrading::TolVersion::MaxDaysOfDelay
+  )
+},
+{
+  ?
+});
+

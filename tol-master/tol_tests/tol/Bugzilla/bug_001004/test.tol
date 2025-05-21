@@ -1,0 +1,53 @@
+/* -*- mode: C++ -*- */
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : test.tol
+// PURPOSE: test for a resolved bug
+//////////////////////////////////////////////////////////////////////////////
+
+//Sets the bugzilla identifier number, your e-mail and the bug´s summary
+  Real bugNum_ =  1004;
+  Text email_ = "vdebuen@tol-project.org"; 
+  Text summary_="inf is a number in TOL on linux";
+  Text link_ = GetTolBugzillaLink(bugNum_);
+
+  //Write here the initial test TOL code if needed
+  Real numErr0 = Copy(NError);
+  Real numWar0 = Copy(NWarning);
+
+  WriteLn("TRACE 1 NObjects = "<<Copy(NObject));
+
+  Real a = inf;
+
+  WriteLn("TRACE 2 NObjects = "<<Copy(NObject));
+
+  Real numErr1 = Copy(NError);
+  Real numWar1 = Copy(NWarning);
+
+  Real inf = 2;
+  Real x.1 = inf;
+  Real x.2 = -inf;
+  Real x.3 = +inf;
+
+  Real ok.1 = x.1 ==  2;
+  Real ok.2 = x.2 == -2;
+  Real ok.3 = x.3 ==  2;
+  
+  Real numErr2 = Copy(NError);
+  Real numWar2 = Copy(NWarning);
+
+
+  Set partialResults_ = [[ numErr0, numErr1,x.1,x.2,x.3,ok.1,ok.2,ok.3]];
+
+//This is a messure of the success of the test 
+  Real quality_ = And(numErr0+2==numErr1,numErr1==numErr2,ok.1,ok.2,ok.3);
+
+//Return the results 
+  Set resultStr_ = @strTestStatus(summary_, link_, quality_,
+                    "Partial results = "<<partialResults_,
+                    "NO DBServerType", "NO DBServerHost", "NO DBAlias",
+                    email_);
+  WriteLn(""<<resultStr_);
+  resultStr_;
+
+/* */
+

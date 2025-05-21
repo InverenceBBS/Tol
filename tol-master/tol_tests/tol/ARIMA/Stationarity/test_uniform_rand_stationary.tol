@@ -1,0 +1,43 @@
+
+Real maxIterByTry = 20;
+Real deg = 3;
+Real size = 10000;
+Real total_success = 0;
+Real total_tries = 0;
+Real total_iter = 0;
+Matrix sample = Rand(0,deg,0,0);
+Set rng_col = Range(2,deg+1,1);
+While(total_success<size,
+{
+  Polyn a = RandStationary(deg);
+  Polyn b = RandStationary(deg);
+//Matrix v = Gaussian(1,deg,0,1);
+  Matrix v = SubCol(Tra(PolMat(a-b,deg+1,1)),rng_col);
+  Real norm = Sqrt(MatDat(MtMSqr(v),1,1));
+  Matrix u = v * (1/norm);
+  Polyn U = MatPol(u)*B;
+  Polyn p = Copy(a);
+  Real iter = 0;
+  Real ok = False;
+  Real total_tries := total_tries+1;
+  While(And(!ok,iter<maxIterByTry),
+  {
+    Real total_iter := total_iter+1;
+    Real iter := iter+1;
+    Real lambda = Rand(-3*deg,3*deg);
+    Polyn p := a+U*lambda;
+    ok := IsStationary(p)
+  });
+  Matrix If(ok,
+    sample := sample << SubCol(Tra(PolMat(p,deg+1,1)),rng_col));
+  Real total_success := total_success +ok
+});
+
+Set showFaces = SetConcat(For(1,deg-1,Set(Real i)
+{
+  For(i+1,deg,Matrix(Real j)
+  {
+    Matrix face = SubCol(sample,[[i,j]]);
+    Eval("Face_"<<i+"_"<<j+"=face")
+  })
+}));

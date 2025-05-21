@@ -1,0 +1,28 @@
+//////////////////////////////////////////////////////////////////////////////
+// FILE: mtrymh.tol
+// Test de pruebas del método Multiple-Try Metropolis
+//////////////////////////////////////////////////////////////////////////////
+
+#Require BysMulTryMet;
+
+Set Include("generate.model.tol");
+
+
+//Set Include("maxlh.tol");
+
+/* */
+//Set k.range = [[ 1 ]];
+  Set k.range = [[Real Ceil(Sqrt(Rows(PARAM))) ]];
+//Set k.range = Range(1,Rows(PARAM),1);
+
+Set simulation = EvalSet(k.range, Set(Real k)
+{
+  Set aux = IncludeText(ReadFile("mtrymh.mcmc.tol"));
+  Text name = "R"<<rndSeed+
+              "I"<<rndSeed_iv+
+              "L"<<arima.label+
+              "K"<<k;
+  Eval(name+"=aux")
+});
+/* */
+

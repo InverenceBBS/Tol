@@ -1,0 +1,73 @@
+# Cholmod lib usually requires linking to a blas and lapack library.
+# It is up to the user of this module to find a BLAS and link to it.
+
+if (CHOLMOD_INCLUDE_DIR AND CHOLMOD_LIBRARIES)
+  set(CHOLMOD_FIND_QUIETLY TRUE)
+endif (CHOLMOD_INCLUDE_DIR AND CHOLMOD_LIBRARIES)
+
+if( CMAKE_SIZEOF_VOID_P EQUAL 8 )
+  set( SEARCH_SUFFIX 64 )
+else( CMAKE_SIZEOF_VOID_P EQUAL 8 )
+  set( SEARCH_SUFFIX "" )
+endif( CMAKE_SIZEOF_VOID_P EQUAL 8 )
+
+find_path(CHOLMOD_INCLUDE_DIR
+  NAMES
+  cholmod.h
+  HINTS /usr/include
+  PATH_SUFFIXES
+  suitesparse
+  ufsparse
+)
+
+message( STATUS "find_library( CHOLMOD_LIBRARY cholmod PATHS $ENV{CHOLMODDIR} ${LIB_INSTALL_DIR})" )
+
+#find_library( CHOLMOD_LIBRARY cholmod PATHS $ENV{CHOLMODDIR} ${LIB_INSTALL_DIR})
+find_library( CHOLMOD_LIBRARY cholmod HINTS /usr/lib64 /usr/lib )
+set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARY} )
+
+if( CHOLMOD_LIBRARIES )
+
+  get_filename_component( CHOLMOD_LIBDIR ${CHOLMOD_LIBRARIES} PATH )
+
+  message( "CHOLMOD_LIBDIR = ${CHOLMOD_LIBDIR}" )
+
+  find_library(AMD_LIBRARY amd PATHS ${CHOLMOD_LIBDIR} $ENV{CHOLMODDIR} ${LIB_INSTALL_DIR})
+  if ( AMD_LIBRARY )
+    set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARIES} ${AMD_LIBRARY} )
+  endif( )
+    
+  find_library( COLAMD_LIBRARY colamd PATHS ${CHOLMOD_LIBDIR} NO_DEFAULT_PATH )
+  if ( COLAMD_LIBRARY )
+    set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARIES} ${COLAMD_LIBRARY} )
+  endif( )
+
+  find_library( CAMD_LIBRARY camd PATHS ${CHOLMOD_LIBDIR} NO_DEFAULT_PATH )
+  if ( CAMD_LIBRARY )
+    set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARIES} ${CAMD_LIBRARY} )
+  endif( )
+
+  find_library(CCOLAMD_LIBRARY ccolamd PATHS ${CHOLMOD_LIBDIR} NO_DEFAULT_PATH )
+  if( CCOLAMD_LIBRARY )
+    set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARIES} ${CCOLAMD_LIBRARY} )
+  endif( )
+
+  find_library(CHOLMOD_METIS_LIBRARY metis PATHS ${CHOLMOD_LIBDIR} 
+    NO_DEFAULT_PATH )
+  if ( CHOLMOD_METIS_LIBRARY )
+    set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARIES} ${CHOLMOD_METIS_LIBRARY} )
+  endif( )
+
+  find_library( SUITESPARSECONFIG_LIBRARY NAMES suitesparseconfig
+    PATHS ${CHOLMOD_LIBDIR} ${CHOLMOD_LIBDIR} )
+  if (SUITESPARSECONFIG_LIBRARY)
+    set( CHOLMOD_LIBRARIES ${CHOLMOD_LIBRARIES} ${SUITESPARSECONFIG_LIBRARY} )
+  endif ()
+
+endif(CHOLMOD_LIBRARIES)
+
+include( FindPackageHandleStandardArgs )
+find_package_handle_standard_args( CHOLMOD DEFAULT_MSG
+  CHOLMOD_INCLUDE_DIR CHOLMOD_LIBRARIES )
+
+mark_as_advanced( CHOLMOD_LIBRARIES )

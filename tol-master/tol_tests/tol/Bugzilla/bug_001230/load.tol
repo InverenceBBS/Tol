@@ -1,0 +1,13 @@
+
+Set example = { Include("ErrorEnAIA.oza") };
+
+//Set outliers = [[ PulseOut, StepOut, TrendOut ]];
+Set outliers = [[ PulseOut ]];
+Set ShowAia(Set aia)
+{
+  WriteLn("\n"+Name(aia)+" has "<<Card(aia)+" outliers : ");
+  Set View(aia,"Std");
+  WriteLn("");
+  aia
+};
+

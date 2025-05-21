@@ -1,0 +1,347 @@
+
+  // [API útil]
+  //  * Text _.autodoc.get.identifier(NameBlock package)
+  //  * NameBlock Require(Text identifier)
+  //  * Text Platform(Real void)
+  //  * Real AddRepository(Text url) 
+  // [API Client+Server]
+  //  * Real InstallPackage(Text identifier)
+  //  * Real InstallCompatible(Text pattern, Text tolPlatform, 
+  //      Text tolVersion, Date date)
+  //  * Real InstallLastCompatible(Text pattern)
+  //  * Real UpdateAll(Real void)
+  //  * Real UpgradeAll(Real void)
+  // [API compatibilidad]
+  //  % Set _.GetVersSyncInfo(Real void) 
+  //  % Set _.GetPackSyncInfo(Text tolVersion)
+  //  % Set GetInstallationList(Set packages)
+  //  * Set AtListA(Text listId)
+  // <Leyenda>
+  //  %: Utilizados en la GUI de TolPackage.
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _.autodoc.get.identifier(NameBlock package)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text variant = getOptArg(package, "_.autodoc.variant", "");
+    package::_.autodoc.name<<If(TextLength(variant), "#"<<variant, "")<<"."
+      <<package::_.autodoc.version.high<<"."<<package::_.autodoc.version.low
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  NameBlock Require(Text identifier)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real Eval("Real {
+      #Require "<<identifier<<";
+    1}");
+    Eval(Tokenizer(identifier, ".")[1])
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _Platform = "";
+  ////////////////////////////////////////////////////////////////////////////
+  Text _Platform_NaturalCase(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    // Si aún no se ha redefinido _Platform se hace ahora
+    Text If(_Platform=="", {
+      Text _Platform := If(ObjectExist("Code", "PlatformInfo"), {
+        Set platInfo = PlatformInfo(?);
+        Text platInfo[5]<<"__"
+          <<FormatReal(platInfo[1]*8, "%.0lf")
+          <<"__"<<platInfo[3]
+      }, {
+        // Si aún no existía PlatformInfo tenemos dos casos:
+        If(OSName=="WINDOWS", "Windows__32__MSVC", "Linux__32__GNU")
+      })
+    });
+    _Platform
+  };
+  ////////////////////////////////////////////////////////////////////////////
+  Text Platform(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  { ToUpper(_Platform_NaturalCase(?)) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _.autodoc.member.AddRepository = 
+    "Añade un repositorio a la lista de configuración del usuario:\n"
+    "  Set TolConfigManager::Config::Upgrading::TolPackage::Repositories\n";
+  Real AddRepository(Text url)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Set TolConfigManager::Config::Upgrading::TolPackage::Repositories :=
+      Unique(TolConfigManager::Config::Upgrading::TolPackage::Repositories <<
+      [[url]]);
+    Real TolConfigManager::SaveConfig(TolConfigManager::Config);
+    Real Server::GetCatalog(?)::Update(?)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _AsOSDir(Text dir)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    // OSDir* utiliza direcciones no acabadas en /
+    Real length = TextLength(dir);
+    If(Text Sub(dir, length, length)=="/", Sub(dir, 1, length-1), dir)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real InstallPackage(Text identifier)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real Server::Initialize(?);
+    Text file = Server::DownloadPackage(identifier);
+    Real If(TextLength(file), {
+      Real Client::InstallZip(file);
+      Real Client::UpdateCatalog(?);
+    1}, 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real InstallCompatible(Text pattern, Text tolPlatform, 
+    Text tolVersion, Date date)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real Server::Initialize(?);
+    Text file = Server::DownloadCompatible(pattern, tolPlatform, 
+      tolVersion, date);
+    Real If(TextLength(file), {
+      Real Client::InstallZip(file);
+      Real Client::UpdateCatalog(?);
+    1}, 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real InstallLastCompatible(Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real Server::Initialize(?);
+    Text file = Server::DownloadLastCompatible(pattern);
+    Real If(TextLength(file), {
+      Real Client::InstallZip(file);
+      Real Client::UpdateCatalog(?);
+    1}, 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _Improve(Text mode, Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Set parts = Tokenizer(pattern, ".");
+    Set parts := parts << For(1, 3-Card(parts), Text (Real i) { "*" });
+    Text txtPattern = parts[1]<<"."<<parts[2]<<"."<<parts[3];
+    @Catalog client = Client::GetCatalog(?);
+    @Catalog server = Server::GetCatalog(?);
+    Code obtainList = Eval("server::Obtain"<<mode<<"List");
+    Set improveList = obtainList(client, Platform(?), Version, UnknownDate);
+    Set selImproveList = Select(improveList, Real (Set record) {
+      //TextMatch(Name(record), txtPattern)
+      TextMatch(record::name<<"."<<record::high<<"."<<record::low, txtPattern)
+    });
+    If(Card(selImproveList), {
+      Set record = selImproveList[1];
+      Real If(mode=="Update", {
+        WriteLn("[Update] Se actualiza "<<record::identifier);
+      1}, {
+        WriteLn("["<<mode<<"] Se mejora a "<<record::identifier);
+      1});
+      InstallPackage(record::identifier)
+    }, 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real Update(Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  { _Improve("Update", pattern) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real Upgrade(Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  { _Improve("Upgrade", pattern) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real LowUpgrade(Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  { _Improve("LowUpgrade", pattern) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real FullUpgrade(Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  { _Improve("FullUpgrade", pattern) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _ImproveAll(Text mode)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog client = Client::GetCatalog(?);
+    @Catalog server = Server::GetCatalog(?);
+    Code obtainList = Eval("server::Obtain"<<mode<<"List");
+    Set improveList = obtainList(client, Platform(?), Version, UnknownDate);
+    If(Card(improveList), SetSum(EvalSet(improveList, Real (Set record) {
+      Real If(mode=="Update", {
+        WriteLn("[UpdateAll] Se actualiza "<<record::identifier);
+      1}, {
+        WriteLn("["<<mode<<"All] Se mejora a "<<record::identifier);
+      1});
+      InstallPackage(record::identifier)
+    })), 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real UpdateAll(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ImproveAll("Update") };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real UpgradeAll(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ImproveAll("Upgrade") };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real LowUpgradeAll(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ImproveAll("LowUpgrade") };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real FullUpgradeAll(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ImproveAll("FullUpgrade") };
+
+  // Estructuras
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Para la gestión de orígenes de código. (Builder)
+  Struct @PackageSource
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text name;
+    Text type;
+    Text source
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Para la transmisión de información desde los repositorios. (Server)
+  // Información de un paquete que es relevante para la sincronización de las 
+  // copias locales con el repositorio remoto.
+  Struct @VersionSynchro
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text te_url,                  //URL of repository
+    Text co_name,                 //Generic name of package
+    Text co_name_version,         //Name of versioned package 
+    Text te_extra_info,           //Extra information
+    Text te_min_tol_version,      //Minimum compatible TOL version
+    Text te_max_tol_version,      //Maximum compatible TOL version
+    Text te_dependencies,         //Required packages
+    Date dh_release_date_remote,  //Publication date in remote repository
+    Date dh_release_date_local,   //Local installing date
+    Real nu_bytes                 //Size of remote compressed archive
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Para la transmisión de información desde los repositorios. (Server)
+  // Información de un paquete que es relevante para la sincronización de las 
+  // copias locales con el repositorio remoto.
+  Struct @PackageSynchro {
+  ////////////////////////////////////////////////////////////////////////////
+    Text te_url,                  //URL of repository
+    Text co_name,                 //Generic name of package
+    Text te_brief,                //Brief description of package 
+    Text te_extra_info,           //Extra information
+    Text te_min_tol_version,      //Minimum compatible TOL version
+    Text te_max_tol_version,      //Maximum compatible TOL version
+    Text co_last_version_remote,  //Name of last remote version
+    Text co_last_version_local,   //Name of last local version
+    Date dh_release_date_remote,  //Publication date in remote repository
+    Date dh_release_date_local,   //Local installing date
+    Real nu_bytes                 //Size of compressed file
+  };
+
+  // Lists
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set _.GetVersSyncInfo(Real void) // Compatibilidad GUI
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog client = Client::GetCatalog(?);
+    @Catalog server = Server::GetCatalog(?);
+    Set compRecords = server::GetCompatibleRecords(Platform(?), Version, 
+      UnknownDate);
+    SetConcat(EvalSet(compRecords, Set (Set list) {
+      // localRelease se obtiene sólo una vez por cada list
+      Set record1 = list[1];
+      Text localIdentifier = client::ObtainIdentifier_Show(record1::name, 
+        Platform(?), Version, UnknownDate, 0);
+      Date localRelease = If(TextLength(localIdentifier), {
+        Set localRecord = client::GetRecord(localIdentifier);
+        localRecord::release
+      }, TheBegin);    
+      EvalSet(list, Set (Set record) {
+        Text dependencies = If(Card(record::freeDependencies), {
+          SetSum([[ record::freeDependencies[1] ]]
+            << For(2, Card(record::freeDependencies), Text (Real i) { 
+              ", "<<record::freeDependencies[i] 
+          }))
+        }, "");
+        @VersionSynchro(record::repository, record::name, record::identifier,
+          "<...>", record::minTolVersion, record::maxTolVersion, 
+          dependencies, record::release, localRelease, ?)
+      })
+    }))
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set _.GetPackSyncInfo(Text tolVersion) // Compatibilidad GUI
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog client = Client::GetCatalog(?);
+    @Catalog server = Server::GetCatalog(?);
+    Set compList = server::GetCompatibleList(Platform(?), tolVersion, 
+      UnknownDate);
+    EvalSet(compList, Set (Set record) {
+      Text localIdentifier = client::ObtainIdentifier_Show(record::name, 
+        Platform(?), tolVersion, UnknownDate, 0);
+      Date localRelease = If(TextLength(localIdentifier), {
+        Set localRecord = client::GetRecord(localIdentifier);
+        localRecord::release
+      }, TheBegin);
+      @PackageSynchro(record::repository, record::name, "<...>", "<...>", 
+        record::minTolVersion, record::maxTolVersion, record::identifier,
+        localIdentifier, record::release, localRelease, ?)
+    })
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set GetInstallationList(Set patterns) // GUI
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    TolPackage::@Catalog catalog = TolPackage::Server::GetCatalog(?);
+    Set deepDs = Unique(SetConcat(EvalSet(patterns, Set (Text pattern) {
+      [[pattern]]<<catalog::GetDeepDependencies(pattern, 
+        Platform(?), Version, UnknownDate)
+    })));
+    catalog::IdentifyPackages(deepDs, Platform(?), Version, UnknownDate)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set _ListA = Ois.Load(GetAbsolutePath("listA.oza"))[1];
+  ////////////////////////////////////////////////////////////////////////////
+  Set AtListA(Text listId)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real index = FindIndexByName(_ListA, listId);
+    If(index, _ListA[index], {
+      Set parts = Tokenizer(listId, ".");
+      Real index2 = FindIndexByName(_ListA, parts[1]);
+      If(index2, {
+        Set info = DeepCopy(_ListA[index2]);
+        Real info::_.autodoc.version.high := Eval(parts[2]);
+        Real info::_.autodoc.version.low := Eval(parts[3]);
+        Text identifier = parts[1]<<"."<<parts[2]<<"."<<parts[3];
+        PutName(identifier, info)
+      }, Copy(Empty))
+    })
+  };
+
+  ////////////////////////////////////////////////////////////////////////////

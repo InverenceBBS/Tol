@@ -1,0 +1,333 @@
+/* -*- mode: C++ -*- */
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : client.tol
+// PURPOSE: TolPackage client tools
+//////////////////////////////////////////////////////////////////////////////
+
+Text _.autodoc.member.Client = 
+  "Sistema cliente de gestión de paquetes TOL";
+//////////////////////////////////////////////////////////////////////////////
+@LocalBlock Client =
+//////////////////////////////////////////////////////////////////////////////
+[[
+  // [API]
+  //  # Text _.localRoot
+  //  * @Catalog GetCatalog(Real void) 
+  //  * Real UpdateCatalog(Real void)
+  //  % Set GetPackageInfo(Text name.version) //[OLD] LocalInfo
+  //  * Real InstallZip(Text file) //[OLD] LocalInstallPackage
+  //  % Real ExportPackage(Text id, Text dest) //[OLD] LocalExportPackage
+  //  * Real UninstallPackage(Text package) //[OLD] LocalClean
+  //  # Real Initialize(Real void)
+  // [API Compatibilidad]
+  //  # Text LocalLastCompatible(Text package)
+  //    => GetCatalog(?)::ObtainLastCompatible(package)
+  //  # Real RemoteInstall(Text repository, Text package, Real showError)
+  //    => TolPackage::InstallLastCompatible(pattern)
+  //  $ Real RemoteUpdateAll(Real void)
+  //    => TolPackage::UpdateAll(?)
+  //  $ Real RemoteUpgradeAll(Real void)
+  //    => TolPackage::UpgradeAll(?)
+  //  & Text CppTools.Path(NameBlock pkg)
+  //  & Real CppTools.Check(NameBlock package, Text dllFile, Text chechMethod)
+  // <Leyenda>
+  //  #: Obligatorios por ser usados en language.cpp
+  //  &: Obligarorios por ser usados en la carga de paquetes con DLLs.
+  //  %: Utilizados en la GUI de TolPackage.
+  //  $: Recomendados por ser muy utilizados.
+
+  // La ruta "_.localRoot" es donde se instalan los paquetes y de allí 
+  // intentan cargarse tras comprobar la versión más adecuada.
+  Text _.localRoot = _.localRoot<<"Client/";
+  Set _.catalog = Copy(Empty);
+
+  ////////////////////////////////////////////////////////////////////////////
+  @Catalog GetCatalog(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    If(Card(_.catalog), _.catalog[1])
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real UpdateCatalog(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog catalog = GetCatalog(?);
+    catalog::Update(?)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set GetPackageInfo(Text name.version) // GUI (antes)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog catalog = GetCatalog(?);
+    Set record = catalog::GetRecord(name.version);
+    If(Card(record), @Catalog::FormatRecord_Autodoc(record), Copy(Empty))
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set GetPackageInfo_Compatible(Text name.version) // GUI
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog catalog = GetCatalog(?);
+    Set record = catalog::GetRecord_Compatible(name.version);
+    If(Card(record), @Catalog::FormatRecord_Autodoc(record), Copy(Empty))
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Por compatibilidad a las llamadas recomendadas en:
+  //   https://www.tol-project.org/wiki/TolPackageRulesAndComments
+  Real AddRepository(Text url)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    WriteLn("Método obsoleto. Utilize en su lugar: "
+      <<"TolPackage::AddRepository.");
+    TolPackage::AddRepository(url)
+  };
+
+  // Métodos Local* y Remote* mantenidos por compatibilidad
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real LocalClean(Text package)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real UninstallPackage(package)
+  };
+  
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Text LocalLastCompatible(Text package)
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  {
+    If(TextMatch(package, "*#*"), {
+      WriteLn("Package pattern '"<<package<<"' not valid.\n"
+        <<"Please, do require the package without variant.", "E");
+      ""
+    }, {
+      Real length = TextLength(package);
+      Text packageWP = If(Text Sub(package, length, length)==".", 
+        Text Sub(package, 1, length-1), package); // Se elimina el punto final
+      @Catalog catalog = GetCatalog(?);
+      Text ans = AvoidErr.NonDecAct(catalog::ObtainLastCompatible(packageWP));
+      // Es necesario devolver el identificador del paquete sin variante
+      // cuando se llama justo después de instalar un paquete.
+      If(_RemoteInstall.JustCalled, {
+        Real _RemoteInstall.JustCalled := False;
+        Real posN = TextFind(ans, "#");
+        If(posN>0, {
+          Real posP = TextFind(ans, ".", posN);
+          TextSub(ans, 1, posN-1) + If(posP==0, "", TextSub(ans, posP, -1))
+        }, ans)
+      }, ans)
+    })
+  };
+
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Real _RemoteInstall.JustCalled = False;
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Real RemoteInstall(Text repository, Text package, Real showError)
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  {
+    // Es necesario que el método LocalLastCompatible devuelva 
+    // el identificador del paquete sin mostrar la variante
+    // cuando se llama justo después de instalar un paquete.
+    Real _RemoteInstall.JustCalled := True;
+    Real length = TextLength(package);
+    Text packageWP = If(Text Sub(package, length, length)==".", 
+      Text Sub(package, 1, length-1), package); // Se elimina el punto final
+    WriteLn("[TolPackage::Client] Se intentará descargar el paquete '"
+      <<packageWP<<"'.");
+    InstallLastCompatible(packageWP)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real RemoteUpdateAll(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    WriteLn("Método obsoleto. Utilize en su lugar: TolPackage::UpdateAll.");
+    UpdateAll(?)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real RemoteUpgradeAll(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    WriteLn("Método obsoleto. Utilize en su lugar: TolPackage::UpgradeAll.");
+    UpgradeAll(?)
+  };
+
+  // Métodos:
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real InstallZip(Text file) //[OLD] LocalInstallPackage
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real OSFilCopy(file, _.localRoot);
+    Text packageName = Replace(GetFileName(file), ".zip", "");
+    Text folder = _.localRoot<<packageName;
+    Real OSDirRemove(folder);
+    Real PackArchive::UnpackFull("ZipArchive", folder, True);
+    If(FileExist(folder<<"/"<<packageName+".oza"), {
+      Real UpdateCatalog(?);
+    1}, 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real ExportPackage(Text pkg.ver, Text destinationRoot) // GUI
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text pkg.loc = _.localRoot<<pkg.ver;
+    Text zip.loc = pkg.loc+".zip";
+    Text zip.dest = destinationRoot+pkg.ver+".zip";
+    //Ensures that local.oza is locally created
+    //Set LocalInfo(pkg.ver);
+    //Compacts the package as a ZIP file
+    Real PackArchive::PackFull("ZipArchive", ReplaceSlash(pkg.loc), False);
+    //Moves the ZIP file to destination directory
+    Real OSFilMove(zip.loc, zip.dest);
+    FileExist(zip.dest)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real UninstallPackage(Text package) //[OLD] LocalClean
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    // Se trata el hecho de que pueda haberse indicado la ruta del archivo
+    Text pattern = Replace(GetFileName(package), ".zip", "");
+    Set parts = Tokenizer(pattern, ".");
+    Set Append( parts, For( Card(parts) + 1, 3, Text (Real i) { "*" } ) );
+    Text txtPattern = parts[1]<<"."<<parts[2]<<"."<<parts[3];
+    Set dir = GetDir(_.localRoot)[2];
+    Set sel = EvalSet(GetDir(_.localRoot)[2], Real (Text subdir) {
+      If(TextMatch(subdir ,txtPattern), {
+        Real OSDirRemove(_.localRoot<<subdir);
+      1}, 0)
+    });
+    If(Card(sel), {
+      Real UpdateCatalog(?);
+      SetSum(sel)
+    }, 0)
+  };
+
+  // Métodos CppTools
+
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Text CppTools.Path(NameBlock pkg)
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  {
+    Text packageFullName = pkg::_.autodoc.name+"."<<
+      pkg::_.autodoc.version.high+"."<<pkg::_.autodoc.version.low;
+    _CppTools.CalcPath(packageFullName)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _CppTools.CalcPath(Text packageFullName)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text packageName = Tokenizer(packageFullName,".")[1];
+    Text dllRoot.rel = GetAbsolutePath(_.localRoot+packageFullName+
+      "/CppTools/"+GetHardSoftPlattform(0));
+    Text dllRoot.deb = dllRoot.rel+"_dbg";
+    Text dllFile.rel = dllRoot.rel+"/"+packageName+"."+GetSharedLibExt(0);
+    Text dllFile.deb = dllRoot.deb+"/"+packageName+"."+GetSharedLibExt(0);
+    If(!TextEndAt(Version, "{DEBUG}"), dllFile.rel, {
+      If(OSDirExist(dllFile.deb),dllFile.deb, {
+        WriteLn("Cannot find debug library "+dllFile.deb+
+          ".\n Trying to load "+dllFile.rel,"W");
+        dllFile.rel
+      })
+    })
+  };
+
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Real CppTools.Check(NameBlock package, Text dllFile, Text chechMethod)
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  {
+    Text packageName = package::_.autodoc.name;
+    Real ok = ObjectExist("Code", "package::CppTools::"+chechMethod);
+    WriteLn("["+packageName+"] Loading library "+dllFile+
+      " -> "<<If(ok,"OK","FAIL"),If(ok,"S","E"));
+    ok
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Se obtiene la ruta donde se encuentran los paquetes distribuidos por
+  // defecto para que sean instalados en caso necesario.
+  Text _.defaultPackageDir = GetAbsolutePath("../DefaultPackages/");
+  // La lista de paquetes que se cargarán por defecto se dejan en un archivo
+  // aparte para facilitar su consulta y edición.
+  Set _.defaultPackages = 
+    IncludeTOL("../DefaultPackages/DefaultPackages.tol");
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _.autodoc.member._.DefaultFetch =
+    "Download the default packages from OTAN repository and copy into "
+    "DefaultPackage directory. This function is only called during tol "
+    "packaging.";
+  ////////////////////////////////////////////////////////////////////////////
+  Real _.DefaultFetch(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text destDir = TolPackage::Client::_.defaultPackageDir;
+    WriteLn( "[TolPackage::Client] _.DefaultFetch: " << destDir );
+    Real If(!OSDirExist(destDir), OSDirMake(destDir));
+    NameBlock catalog = TolPackage::Server::GetCatalog(?);
+    Set result = EvalSet(_.defaultPackages, Real (Set pkgInfo) {
+      Text pkg = pkgInfo[1];
+      WriteLn("Downloading last "<<pkg<<" compatible with "<<Version);
+      Text pkg.id = catalog::ObtainIdentifier(pkg, Platform(?), 
+        Version, UnknownDate);
+      Text zipFile = TolPackage::Server::DownloadPackageAt(pkg.id, destDir);
+      Real ok = FileExist(zipFile);
+      WriteLn("   ==> "<<pkg<<": "<<If(ok, "SUCCESS", "FAIL"));
+      ok
+    });
+    SetSum(result)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _.DefaultRequire( Real void )
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real tryDefaults = If(ObjectExist("Real", "__NODEFAULTPACKAGES"),
+      Not(__NODEFAULTPACKAGES), 1);
+    Set toRequire = Select(_.defaultPackages, Real (Set elem) { 
+      And(tryDefaults, elem[2]) 
+    });
+    Set done = EvalSet(toRequire, Real (Set elem) {
+      NameBlock Require(elem[1]);
+    1});
+    Card(done)
+  };
+
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Real _initialized = False;
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  Text _.autodoc.member.Initialize = 
+    "Inicializa el cliente del servicio de paquetes TOL";
+  Real Initialize(Real void)
+  //||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||//
+  {
+    If(_initialized, 0, {
+      Real _initialized := True;
+      Real OSDirMake(_AsOSDir(_.localRoot));
+      // [A] Se construye el catálogo local
+      @Catalog catalog = @Catalog::Local(_.localRoot);
+      Set _.catalog := [[ catalog ]];
+      // [B] Se instalan los paquetes por defecto si es necesario
+      Set localZips = Select(GetDir(_.defaultPackageDir)[1], 
+        Real (Text filename) { TextMatch(filename, "*.zip") });
+      Set install = EvalSet(localZips, Real (Text filename) {
+        Text packageName = Replace(GetFileName(filename), ".zip", "");
+        If(catalog::FindRecord(packageName), 0, {
+          WriteLn("[TolPackage::Client] Installing default package " 
+           <<packageName);
+          InstallZip(_.defaultPackageDir<<filename)
+        })
+      });
+      Real If(Card(install), If(SetSum(install), catalog::Update(?))); 
+      // [C] Se cargan los paquetes por defecto
+      _.DefaultRequire(?)
+    })
+  }
+]];
+//////////////////////////////////////////////////////////////////////////////

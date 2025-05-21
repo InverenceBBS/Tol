@@ -1,0 +1,201 @@
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : TolVersion.tol
+// PURPOSE: TOL version related functions
+//////////////////////////////////////////////////////////////////////////////
+
+Text _.autodoc.member.TolVersion = 
+  "Módulo de funciones para la gestión de las versiones de TOL.";
+//////////////////////////////////////////////////////////////////////////////
+@LocalBlock TolVersion =
+//////////////////////////////////////////////////////////////////////////////
+[[    
+  ////////////////////////////////////////////////////////////////////////////
+  Real CompareVersions(Text version1, Text version2)
+  ////////////////////////////////////////////////////////////////////////////
+  { _CompareVersions_Sign(version1, version2, 0) };
+  
+  ////////////////////////////////////////////////////////////////////////////
+  Real CompareVersions_Short(Text version1, Text version2)
+  ////////////////////////////////////////////////////////////////////////////
+  { _CompareVersions_Sign(version1, version2, 1) };
+  
+  ////////////////////////////////////////////////////////////////////////////
+  Real CompareVersions_Long(Text version1, Text version2)
+  ////////////////////////////////////////////////////////////////////////////
+  { _CompareVersions_Sign(version1, version2, -1) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _CompareVersions_Sign(Text version1, Text version2, Real sign)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    _SetCompare_Sign(ObtainIntegers(version1), ObtainIntegers(version2), sign)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Se introduce una cache para agilizar las llamadas a esta función.
+  Set _ObtainIntegers.Cache = Copy(Empty);
+  ////////////////////////////////////////////////////////////////////////////
+  Set ObtainIntegers(Text version)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text v = Sub(version, 1, 1);
+    If(v!="v", {
+      If(False, ?)
+    }, {
+      Real index = FindIndexByName(_ObtainIntegers.Cache, version);
+      Set If(index, {
+        _ObtainIntegers.Cache[index]
+      }, {
+        Real firstEnd = TextFind(version, ".", 2)-1;
+        Real If(firstEnd<0, firstEnd:=TextLength(version));
+        Real v1 = Eval(Text Sub(version, 2, firstEnd));
+        Set integers = If(v1<=2, {
+          Text versionM = Replace(Sub(version, 2, TextLength(version)), 
+            ".", " ");
+          EvalSet(Select(Tokenizer(versionM, " "), _IsIntegerText), 
+            Real (Text it) { Eval(it) })
+        }, {
+          Text versionM = Replace(Replace(
+            Replace(Sub(version, 2, TextLength(version)), ".", " "), 
+            " p", " 1 "), " b", " 0 ");
+          EvalSet(Select(Tokenizer(versionM, " "), _IsIntegerText), 
+            Real (Text it) { Eval(it) })
+        });
+        Set Append(_ObtainIntegers.Cache, [[ PutName(version, integers) ]]);
+        integers
+      })
+    })
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real ComparePackages(Anything package1, Anything package2)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ComparePackages_Sign(package1, package2, 0) };
+  
+  ////////////////////////////////////////////////////////////////////////////
+  Real ComparePackages_Short(Anything package1, Anything package2)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ComparePackages_Sign(package1, package2, 1) };
+  
+  ////////////////////////////////////////////////////////////////////////////
+  Real ComparePackages_Long(Anything package1, Anything package2)
+  ////////////////////////////////////////////////////////////////////////////
+  { _ComparePackages_Sign(package1, package2, -1) };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _ComparePackages_Sign(Anything package1, Anything package2, Real sign)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    _SetCompare_Sign(ObtainPackageVersion(package1), 
+      ObtainPackageVersion(package2), sign)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Set ObtainPackageVersion(Anything package) // Text o NameBlock
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Case(Grammar(package)=="NameBlock", {
+      [[ Text name = package::_.autodoc.name;
+         Real high = package::_.autodoc.version.high;
+         Real low = package::_.autodoc.version.low
+      ]]
+    }, Grammar(package)=="Text", {
+      Set parts = Tokenizer(Replace(package, "*", ""), ".");
+      If(Card(parts), {
+        // Sigo si tiene nombre
+        [[ Text parts[1] ]] << If(Card(parts)>=2, {
+          If(TextLength(parts[2]), {
+            // Sigo si tiene versión alta
+            [[ Real Eval(parts[2]) ]] << If(Card(parts)>=3, {
+              If(TextLength(parts[3]), {
+                // Sigo si tiene versión baja
+                [[ Real Eval(parts[3]) ]]
+              }, Copy(Empty))
+            }, Copy(Empty))
+          }, Copy(Empty))
+        }, Copy(Empty))
+      }, Copy(Empty))
+    })
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real TestPackageVersion(Text package, Text mode)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    // mode:
+    //  * MIN: La versión indicada es la mínima admitida
+    //  * MAX: La versión indicada es la máxima admitida
+    //  * EQ: La versión indicada es la única admitida
+    Text name = Tokenizer(package, ".")[1];
+    Real Case(Not(ObjectExist("NameBlock", name)), {
+      WriteLn("[TestPackageVersion] El paquete indicado '"<<name
+        <<"' no está cargado.", "E");
+    0}, mode=="MIN", {
+      Real lower = ComparePackages_Short(Eval(name), package);
+      // Si lower<0 la versión cargada es menor que la indicada
+      If(lower<0, {
+        WriteLn("[TestPackageVersion] La versión de '"<<name
+          <<"' cargada es menor que la mínima requerida: "<<package, "E");
+      0}, 1)
+    }, mode=="MAX", {
+      Real upper = ComparePackages_Long(Eval(name), package);
+      // Si upper>0 la versión cargada es mayor que la indicada
+      If(upper>0, {
+        WriteLn("[TestPackageVersion] La versión de '"<<name
+          <<"' cargada es mayor que la máxima requerida: "<<package, "E");
+      0}, 1)
+    }, mode=="EQ", {
+      Real lower = ComparePackages_Short(Eval(name), package);
+      Real upper = ComparePackages_Long(Eval(name), package);
+      // Si lower<0 la versión cargada es menor que la indicada
+      // Si upper>0 la versión cargada es mayor que la indicada
+      Case(lower<0, {
+        WriteLn("[TestPackageVersion] La versión de '"<<name
+          <<"' cargada es menor que la requerida: "<<package, "E");
+      0}, upper>0, {
+        WriteLn("[TestPackageVersion] La versión de '"<<name
+          <<"' cargada es mayor que la requerida: "<<package, "E");
+      0}, True, 1)
+    }, True, {
+      WriteLn("[TestPackageVersion] Modo '"<<mode<<"' no admitido, "
+        "indíquese uno de los siguientes: 'MAX', 'MIN' y 'EQ'.", "E");
+    0})
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _SetCompare_Sign(Set set1, Set set2, Real sign)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real len1 = Card(set1);
+    Real len2 = Card(set2);
+    Real len = Min(len1, len2);
+    Real i = 1;
+    Real compare = 0;
+    Real While(i<=len & Not(compare), {
+      Real compare := Compare(set1[i], set2[i]);
+      Real i := i+1 
+    });
+    If(i>len & Not(compare), Compare(len1, len2) * sign, compare)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _IsIntegerText(Text integer)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real length = TextLength(integer);
+    If(length==0, 0, {
+      Real isInteger = True;
+      Real position = 1;
+      While(isInteger & position<=length, {
+        Real ascii = ASCII(Sub(integer, position, position));
+        If(ascii>=48 & ascii<=57, {
+          Real position := position + 1
+        }, {
+          Real isInteger := False
+        })
+      });
+      isInteger
+    })
+  }
+]];
+//////////////////////////////////////////////////////////////////////////////

@@ -1,0 +1,151 @@
+//////////////////////////////////////////////////////////////////////////////
+//FILE: test.tol
+//AUTHOR: vdebuen@tol-project.org
+//CREATION: 2008-05-08
+//PURPOSE: Testing full linear block aproach to simulating a Hierarchycal 
+//         Linear Model with restrictions of inequality by using NameBlock
+//         StdLib::BysMcmc.
+//////////////////////////////////////////////////////////////////////////////
+
+Text email_ = "vdebuen@tol-project.org"; 
+Text link_ = "";
+Text summary_ = 
+"Testing full linear block aproach to simulating a Hierarchycal "
+"Linear Model with restrictions of inequality by using NameBlock "
+"StdLib::BysMcmc." ;
+
+Real numErr0 = Copy(NError);
+
+Real PutRandomSeed(0);
+	
+//Random seed setting
+//VBR: Con estas semillas se cae sólo en la batería de tests pero no en tolbase
+//Real PutRandomSeed(208774589);
+//Real PutRandomSeed(1115981481);
+//Real PutRandomSeed(1690594708);
+
+Real rndSeed = GetRandomSeed(0);
+WriteLn("Current Random Seed = "<<rndSeed);
+
+#Require BysMcmc;
+
+//Creates a random model and writes it in "parse.bsr"
+Set Include("load.tol");
+
+BysMcmc::@Config bsr.config = [[
+  Real mcmc.sampleLength = 2000;
+  Real mcmc.cacheLength = 100;
+  Real mcmc.burnin = 100;
+//Real bsr.iniVal.try.cnstrMLE = 1;
+  Real bsr.linBlk.MH.useAfterIter = 1/0;
+  Real bsr.arimaStoreInitialValues = True;
+  Real do.resume = 0;
+  Real do.report = True;
+  Real do.eval = True;
+  Real do.linear.effects = True;
+  Real do.save.DBApi.Estim.Oza = True;
+  Real do.mcmc.profiler   = True
+]];
+
+BysMcmc::@Cycler cycler = BysMcmc::Bsr::Gibbs::GetCycler(
+  mod::bsr.parsed, 
+  BysMcmc::@McmcPartialHandler::Null(0), 
+  bsr.config, 
+  BysMcmc::@Notifier::Null(0));
+
+//Real cycler::initialize(0);
+//Real cycler::_.sampler::_.arm.blk::refreshFrequency    := 0.25;
+//Real cycler::_.sampler::_.inpMis.blk::refreshFrequency := 0.25;
+//Real cycler::_.sampler::_.outMis.blk::refreshFrequency := 0.25;
+
+BysMcmc::@Estimation estim = BysMcmc::@Estimation::New(cycler);
+
+Real estim::Run(0);
+
+Struct @CompareStruct 
+{
+  Real Index,
+  Text Name,
+  Real RealValue,
+  Real Estimated,
+  Real Difference,
+  Real Sigma,
+  Real K_SigDif
+};
+
+//////////////////////////////////////////////////////////////////////////////
+//Table this set to view real and estimated parameters
+//////////////////////////////////////////////////////////////////////////////
+Set CompareTable = 
+{  
+  Matrix var.real = 
+    mod::_beta << 
+    mod::_variance <<
+    mod::_arma  <<
+    mod::_outMis <<
+    mod::_inpMis;
+  For(1,Card(estim::report::colNames), Set(Real k)
+  {
+    Real x.r = MatDat(var.real,k,1);
+    Real x.e = (estim::report::coda.summary)[k]->mean_;
+    Real x.d = x.r-x.e;
+    Real x.s = Sqrt((estim::report::coda.summary)[k]->sd_);
+    Real x.k = x.d/x.s;
+    @CompareStruct
+    (
+      k, 
+      estim::report::colNames[k], 
+      x.r, 
+      x.e, 
+      x.d,
+      x.s,
+      x.k 
+    )
+  })
+};
+
+//////////////////////////////////////////////////////////////////////////////
+//Chart this set to view real and estimated parameters
+//////////////////////////////////////////////////////////////////////////////
+Set CompareChart = Extract(CompareTable,3,4);
+
+Set DifChart  = Extract(CompareTable,5);
+Set KDifChart = Extract(CompareTable,7);
+
+
+Set quality.obs = For(1,mod::K1,Real(Real k)
+{
+  MatStDs(((mod::obsNodes      )[k])::e       ) /
+  StDsS  (((estim::eval.average)[k])::serResiduals)
+});
+
+Real numErr1 = Copy(NError);
+
+//Extented information about test behaviour
+Set partialResults_ = 
+[[
+  numErr0, numErr1
+]];
+
+//This is a messure of the success of the test 
+Real quality_ = And(numErr0 == numErr1)*SetMin([[1]]<<quality.obs);
+
+//Return the results 
+Set resultStr_ = @strTestStatus(summary_, link_, quality_,
+                  "Partial results = "<<partialResults_,
+                  "NO DBServerType", "NO DBServerHost", "NO DBAlias",
+                  email_);
+WriteLn(""<<resultStr_);
+resultStr_
+
+/* */
+
+/*
+Matrix U0.mcmc = cycler::_.sampler::_.arm.blk::_.U0.mcmc;
+Set U0.names = cycler::_.sampler::_.arm.blk::_.U0.names;
+Set U.report = BysMcmc::Inference::report(
+  "InitialValues", 
+  U0.names,
+  bsr.config::GetReportConfig(0),
+  U0.mcmc);
+*/

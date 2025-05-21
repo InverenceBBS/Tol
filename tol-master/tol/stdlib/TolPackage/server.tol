@@ -1,0 +1,317 @@
+/* -*- mode: C++ -*- */
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : server.tol
+// PURPOSE: TolPackage server tools
+//////////////////////////////////////////////////////////////////////////////
+
+Text _.autodoc.member.Server = 
+  "Sistema servidor de paquetes TOL desde repositorios  remotos.";
+//////////////////////////////////////////////////////////////////////////////
+@LocalBlock Server =
+//////////////////////////////////////////////////////////////////////////////
+[[
+  // [API]
+  //  * @Catalog GetCatalog(Real void)
+  //  * Real UpdateCatalog(Real void)
+  //  * Text DownloadPackage(Text identifier)
+  //  * Text DownloadCompatible(Text pattern, Text tolPlatform, Text tolVersion, Date date)
+  //  * Text DownloadLastCompatible(Text pattern)
+  //  * Text DownloadPackageAt(Text identifier, Text path)
+  //  * Real Initialize(Real void)
+  // [API DB]
+  //  * Real DB.DeletePackage(NameBlock repository.db, Text identifier)
+  //  * Real DB.IdentifyRepository(NameBlock repository.db, Text url)
+  //  * Real DB.UploadPackage(NameBlock repository.db, Text pkg.path.zip)
+  // [API antigua]
+  //  * Text _.localRoot;
+  //  - Set _.supportedPlatforms
+  //  * Real Initialize(Real void)
+  //  - Text FormatSet(Set set)
+  //    => _SqlFormatSet
+  //  - Text FormatSetOfText(Set set)
+  //    => _SqlFormatSetOfText
+  //  - Text BuildPackage(Text name, Text sourceRoot, Text destination, 
+  //      Real removeDir)
+  //    => Builder::BuildPackage
+  //  - Real UploadPackage(NameBlock repository.db, Text pkg.path.zip)
+  //    => Builder::UploadPackageXX -> DB.UploadPackage
+  //  - Real BuildAndUploadPackage
+  //  - Real RemovePackageVersion(Text name, Real nu_version_high,
+  //      Real nu_version_low, NameBlock repository.db)
+  //    => Builder::DestroyPackageXX -> DB.DeletePackage
+  //  - Real Set CheckTolDependencies(NameBlock repository.db, Real fix)
+  // <notas>
+  //  + Se mueven las funciones de construcción de paquetes a Builder
+  //  + Se incorporan las funciones de acceso y consulta de los repositorios
+
+  Text _.localRoot = _.localRoot<<"Server/";
+  Set _.catalog = Copy(Empty);
+
+  ////////////////////////////////////////////////////////////////////////////
+  @Catalog GetCatalog(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real Initialize(?);
+    If(Card(_.catalog), _.catalog[1])
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real UpdateCatalog(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    If(Card(_.catalog), {
+      @Catalog catalog = GetCatalog(?);
+      catalog::Update(?)
+    }, {
+      // Si no existía no se rehace
+      @Catalog catalog = GetCatalog(?);
+    1})
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text DownloadPackage(Text identifier)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    DownloadPackageAt(identifier, _.localRoot)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text DownloadCompatible(Text pattern, Text tolPlatform, 
+    Text tolVersion, Date date)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog catalog = GetCatalog(?);
+    Text compatibleId = catalog::ObtainIdentifier(pattern, tolPlatform, 
+      tolVersion, date);
+    If(TextLength(compatibleId), DownloadPackage(compatibleId), "")
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text DownloadLastCompatible(Text pattern)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    DownloadCompatible(pattern, Platform(?), Version, UnknownDate)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text DownloadPackageAt(Text identifier, Text path)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    @Catalog catalog = GetCatalog(?);
+    Set record = catalog::GetRecord(identifier);
+    If(Card(record), {
+      Text encoded = GetUrlContents(record::repository
+        <<"?tol_package_version="<<_.autodoc.version.high
+        <<"&action=download&format=base64"
+        <<"&package="<<Replace(identifier,"#","%23"));
+      Real OSDirMake(_AsOSDir(path));
+      Text zipFile = path<<identifier<<".zip";
+      Real DecodeBase64ToFile(zipFile, encoded);
+      zipFile      
+    }, {
+      WriteLn("No se encuentra el paquete '"<<identifier<<"'.", "E");
+      ""
+    })
+  };
+
+  // [DB] Funciones para la interacción con la base de datos 
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real DB.DeletePackage(NameBlock repository.db, Text identifier)
+  //[OLD] Server::RemovePackageVersion
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Set parts = Tokenizer(identifier, ".");
+    If(Card(parts)==3, {
+      Real repository.db::Open(0);
+      Text delete.query = "
+        DELETE FROM package_f_contents
+        WHERE co_name = '"<<parts[1]<<"'
+          AND nu_version_high = "<<parts[2]<<"
+          AND nu_version_low = "<<parts[3]<<"
+      ";
+      Real reg = DBExecQuery(delete.query);
+      Real repository.db::Close(0);
+      reg
+    }, 0)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real DB.IdentifyRepository(NameBlock repository.db, Text url)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Real repository.db::Open(0);
+    Real DBExecQuery("set client_encoding to '""latin1""'");
+    Text repository.query = "
+      SELECT id_repository, co_repository, ds_repository, 
+        co_access, co_version_control, te_url
+      FROM repository_d_def AS D,
+        repository_d_access AS A,
+        repository_d_version_control AS V
+      WHERE A.id_access          = D.id_access
+        AND V.id_version_control = D.id_version_control
+        AND (    te_url          = '"<<url<<"' 
+              OR te_url          = '"<<url<<"repository.php' ) 
+    ";
+    Set repository = DBTable(repository.query);
+    If(Card(repository)==0, {
+      WriteLn("La url '"<<url<<"' es desconocida. Revise el campo "
+        "_.autodoc.url del paquete.", "E");
+    ?}, (repository[1])::id_repository)
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real DB.UploadPackage(NameBlock repository.db, Text pkg.path.zip)
+  //[OLD] Server::UploadPackage
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text _MID = "[UploadPackage] ";
+    Text root = GetFilePath(pkg.path.zip);
+    Text pkg.name.zip = GetFileName(pkg.path.zip);
+    Text pkg.name = Replace(pkg.name.zip,".zip","");
+    Set name.tok = Tokenizer(pkg.name,".");
+    Text te_identifier = name.tok[1];
+    Real isVariant = TextMatch(te_identifier, "*#*");
+    Real nu_version_high = Eval(name.tok[2]);
+    Real nu_version_low = Eval(name.tok[3]);
+    Real PackArchive::UnpackFull("ZipArchive",root+pkg.name,False);
+    Text oza = root+pkg.name+If(isVariant, "/infov.oza", "/info.oza");
+    Set pkg = Include(oza);
+    Real If(pkg::_.autodoc.version.high!=nu_version_high,
+    {
+      WriteLn("Wrong version high number "<<
+        nu_version_high+"!="<<pkg::_.autodoc.version.high,"W");
+      Real pkg::_.autodoc.version.high := nu_version_high
+    });
+    Real If(pkg::_.autodoc.version.low!=nu_version_low,
+    {
+      WriteLn("Wrong version low number "<<
+        nu_version_low+"!="<<pkg::_.autodoc.version.low,"W");
+      Real pkg::_.autodoc.version.low := nu_version_low
+    });
+    Real repId = DB.IdentifyRepository(repository.db, pkg::_.autodoc.url);
+    If(Not(repId), {
+      WriteLn(_MID+"Unknown repository '"+pkg::_.autodoc.url+"'","E");
+      False
+    }, {
+      Text bl_contents = EncodeBase64FromFile(pkg.path.zip);
+      Real nu_bytes = FileBytes(pkg.path.zip);
+      Real id_format = 1;
+      Text te_max_tol_version = pkg::_.autodoc.maxTolVersion;
+      Text te_extra_info = If(isVariant, {
+        "variant="+pkg::_.autodoc.variant+"\n"+
+        "platform="+pkg::_.autodoc.platform
+      }, "");
+      Text insert.query = "
+        INSERT INTO package_f_contents (
+          id_repository, co_name, nu_version_high, nu_version_low, 
+          te_brief, te_description, 
+          te_keys, te_authors, te_min_tol_version, dh_release_date,  
+          te_dependencies, te_non_tol_resources, te_version_control,
+          bl_contents, nu_bytes, id_format, te_max_tol_version, te_extra_info)
+        VALUES (
+          "<<repId<<",
+          '"<<te_identifier<<"',
+          "<<pkg::_.autodoc.version.high<<",
+          "<<pkg::_.autodoc.version.low<<",
+          '"<<pkg::_.autodoc.brief<<"',
+          '"<<Replace(pkg::_.autodoc.description, "\n", "<BR>")<<"',
+          '"<<_SqlFormatSetOfText(pkg::_.autodoc.keys)<<"',
+          '"<<_SqlFormatSetOfText(pkg::_.autodoc.authors)<<"',
+          '"<<pkg::_.autodoc.minTolVersion<<"',
+          '"<<_SqlFormatDate(pkg::_.autodoc.releaseDate)<<"',
+          '"<<_SqlFormatSetOfText(pkg::_.autodoc.dependencies)<<"',
+          '"<<_SqlFormatSet(pkg::_.autodoc.nonTolResources)<<"',
+          E'"<<_SqlFormatVersionControl(pkg::_.autodoc.versionControl)<<"',
+          decode('"<<bl_contents<<"', 'base64'),
+          "<<nu_bytes<<",
+          "<<id_format<<",
+          '"<<pkg::_.autodoc.maxTolVersion<<"',
+          '"<<te_extra_info<<"'
+        )
+      ";
+      Real num_reg = DBExecQuery(insert.query);
+      If(!num_reg, WriteLn(_MID+
+        "Package is already in the repository. Please upgrade the "
+        "version numbers or delete the register of existent package.","E"));
+      Real repository.db::Close(0);
+      num_reg
+    })
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _SqlFormatSet(Set set)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text bl = " ";
+    Text name = Name(set);
+    "Set { "+If(name=="", "", Name(set)<<" = ")+bl+If(Card(set), {
+      "[["+bl+SetSum(For(1, Card(set), Text (Real k) {
+        Text gk = Grammar(set[k]);
+        Text nk = Name(set[k]);
+        Text dec = "  "+gk+" { "+If(nk=="","",nk+" = ");
+        If(k>1,","+bl,"")+Case(
+          gk=="Text", dec+"\""+set[k]+"\" } ",
+          gk=="Real", dec<<set[k]+" } ",
+          gk=="Date", dec<<set[k]+" } ",
+          gk=="Set",  _SqlFormatSet(set[k]),
+          True, {
+            WriteLn("[TolPackage::Server::_SqlFormatSet] "
+            " Unexpected object "+If(nk,nk+" ","")+"of invalid type "+gk,"E"),
+            ""}
+        )
+      }))+bl+"]]"
+    }, "Copy(Empty)")<<" }"
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _SqlFormatSetOfText(Set set)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    If(Card(set), {
+      SetSum(For(1, Card(set), Text (Real k) {
+        Text gk = Grammar(set[k]);
+        If(k>1, ",", "") << If(gk=="Text", set[k], {
+          Text nk = Name(set[k]);
+          WriteLn("[TolPackage::_SqlFormatSetOfText] "
+            " Unexpected object "+If(nk,nk+" ","")+"of invalid type "+gk,"E"),
+          ""
+        })
+      }))
+    }, "")
+  };
+ 
+  ////////////////////////////////////////////////////////////////////////////
+  Text _SqlFormatDate(Date date)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    FormatDate(date,"%c%Y-%m-%d %h:%i:%s")
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text _SqlFormatVersionControl(Text versionControl)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    ReplaceTable(versionControl, [[ [["\n", "<BR>"]], [["'", "\""]], //\"
+      [[";", ","]] ]])
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Real _initialized = False;
+  ////////////////////////////////////////////////////////////////////////////
+  Real Initialize(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    If(_initialized, 0, {
+      Real _initialized := True;
+      Real OSDirMake(_AsOSDir(_.localRoot));
+      // [A] Se construye el catálogo remoto
+      Real t1 = Copy(Time);
+      Set _.catalog := [[ @Catalog::Remote(Empty) ]];
+      Real t2 = Copy(Time);
+      Real t21 = Round((t2 -t1)*100)/100;
+      WriteLn("[TolPackage::Server] Catalog "<<t21<<" s.");
+    1})
+  }
+]];
+//////////////////////////////////////////////////////////////////////////////

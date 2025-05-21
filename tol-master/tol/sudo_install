@@ -1,0 +1,2 @@
+#!/bin/sh
+sudo TOLROOT=`echo $TOLROOT` BOOST_BUILD_PATH=`echo $BOOST_BUILD_PATH` ./bjam-gcc-release install ${1+"$@"}

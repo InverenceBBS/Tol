@@ -1,0 +1,21 @@
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : CurlApi.tol
+// PURPOSE: Defines Package CurlApi which an interface with the curl library
+// throught Tcl layer.
+//////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+NameBlock CurlApi = [[
+//////////////////////////////////////////////////////////////////////////////
+Text _.autodoc.brief = "Curl API";
+Text _.autodoc.description = "TOL API to get access to Curl functionality. Based on TclCurl";
+Set _.autodoc.keys = [["curl","http","ftp"]];
+Set _.autodoc.authors = [[ "josp@tol-project.org" ]];
+
+Text _tclCode = { 
+  Text dir = GetAbsolutePath(".") + "/";
+  Text ReadFile( dir + "TolCurl.tcl" )
+};
+
+#Embed "CurlFunctions.tol"
+]];

@@ -1,0 +1,5 @@
+CVS
+.svn
+Makefile.am
+Makefile.in
+Makefile

@@ -1,0 +1,41 @@
+NameBlock connection = DBConnect::Create (
+  "db_test", "_", "_", 
+  "sqlite", "../db_test.db", "", 
+  "Checking SQLite connection from TOL"
+);
+
+Real connection::Open(?);
+
+//Real DBOpen("db_test","","",[["sqlite","../db_test.db",""]]);
+
+
+Real DBExecQuery("
+DROP TABLE IF EXISTS studQu;
+CREATE TABLE IF NOT EXISTS studQu(
+  code VARCHAR(16),
+  qualify FLOAT
+)");
+
+
+Text query.insert = "
+BEGIN;
+INSERT INTO studQu "<<
+SetSum(For(1,200,Text(Real k)
+{
+  "\n"<<
+  If(k>1,"UNION ALL\n","")<<
+  "SELECT 'S"<<IntRand(111111,999999)<<"' as code, "<<
+  Real Rand(0,10)<<" as qualify"
+}))+";
+COMMIT;
+";
+
+Real DBExecQuery(query.insert);
+
+Set DBTable("SELECT * FROM studQu");
+
+//Real DBClose("db_test");
+
+
+Real connection::Close(?);
+

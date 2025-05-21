@@ -1,0 +1,6 @@
+Real dim = 2;
+Matrix XY = Rand( 20000, dim, 0, 1 );
+Real id = ANN.KDTree.New( XY );
+Real k = 10;
+Set ANN.KDTree.KSearch( id, Rand( 100000, dim, 0, 1 ), k );
+Real ANN.KDTree.Delete( id );

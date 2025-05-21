@@ -1,0 +1,21 @@
+#Require TolRInside;
+
+Matrix cases = MatReadFile("cases.bbm");
+
+WriteLn("[TRACE] Running RCall.1  ");
+Real RCall.1 = TolRInside::API::RCall("
+library(tolLink)
+");
+WriteLn("[TRACE] Running RCall.2  ");
+Real RCall.2 = TolRInside::API::RCall("
+cases = tolGet('cases') 
+");
+WriteLn("[TRACE] Running RCall.3  ");
+Real RCall.3 = TolRInside::API::RCall("
+classes = kmeans(cases,5)
+");
+WriteLn("[TRACE] Running REval  ");
+Set centers = TolRInside::API::REval("
+classes$centers
+");
+

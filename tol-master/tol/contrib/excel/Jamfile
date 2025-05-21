@@ -1,0 +1,9 @@
+objects objs
+    : tolExcel.cpp ExcelFormat.cpp BasicExcel.cpp 
+    : <include>. ;
+
+exe test01 : test01.cpp ExcelFormat.cpp BasicExcel.cpp ;
+
+exe test02 : test02.cpp ;
+
+explicit test01 test02 ;

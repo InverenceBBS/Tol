@@ -1,0 +1,168 @@
+/* -*- mode: C++ -*- */
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : default.tol
+// PURPOSE: Defines NameBlock TolConfigManager::Default
+//////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////
+Text _.autodoc.member.Default = "Default configuration options";
+NameBlock Default =
+//////////////////////////////////////////////////////////////////////////////
+[[
+  Text _.autodoc.member.Time = "Default dates";
+  NameBlock Time =
+  [[
+    Text _.autodoc.member.FirstDate = "Initial date";
+    Date FirstDate = DefFirst;
+    Text _.autodoc.member.LastDate = "Final date";
+    Date LastDate = DefLast
+  ]];
+  Text _.autodoc.member.Output = "Output window";
+  NameBlock Output =
+  [[
+    Text _.autodoc.member.Use = "Write messages to output window";
+    Real Use = True;
+    Text _.autodoc.member.errorColor = "Error message color";
+    NameBlock errorColor = 
+    [[
+      Real Red = 255;
+      Real Green = 0;
+      Real Blue = 0;
+      Real Hue = 0;
+      Real Saturation = 240;
+      Real Brightness = 120
+    ]];
+    Text _.autodoc.member.warningColor = "Warning message color";
+    NameBlock warningColor = 
+    [[
+      Real Red = 0;
+      Real Green = 0;
+      Real Blue = 255;
+      Real Hue = 160;
+      Real Saturation = 240;
+      Real Brightness = 120
+    ]];
+    Text _.autodoc.member.refresh="Refresh updating in miliseconds";
+    Real refresh = 0
+  ]];
+  Text _.autodoc.member.Precision = "Default precision of real numbers";
+  NameBlock Precision =
+  [[
+    Text _.autodoc.member.Decimals = "Number of decimal digits";
+    Real Decimals = 4;
+    Text _.autodoc.member.ExpNotation = "Use of exponential notation over "
+    "this number of digits";
+    Real ExpNotation = 8
+  ]];
+  Text _.autodoc.member.ExternalTools = "Paths to external tools";
+  NameBlock ExternalTools =
+  [[
+    Text _.autodoc.member.Navigator = "Internet navigator";
+    Text Navigator = "";
+    Text _.autodoc.member.PdfViewer = "PDF viewer";
+    Text PdfViewer = "";
+    Text _.autodoc.member.Helper = "Helper program";
+    Text Helper = "";
+    Text _.autodoc.member.UrlDownloader = "Method used by GetUrlContents in "
+    "order to download contents from remote URL's. Valid methods are tcl:uri "
+    "tcl:curl and sys:wget";
+    Text UrlDownloader = "tcl:curl";
+    Text _.autodoc.member.CurlApiCfg = "Configuración por defecto de CurlApi";
+    NameBlock CurlApiCfg =
+    [[
+      Text _.autodoc.member.verbose = "When True display a lot of verbose "
+      "information about its operations. Very useful for protocol debugging "
+      "and understanding.";
+      Real verbose = 0;
+      Text _.autodoc.member.connecttimeout = "Set the maximum time in seconds "
+      "that you allow the connection to the server to take. This only limits "
+      "the connection phase, once it has connected, this option is of no more "
+      "use. This is an optional argument, it defaults to 0 which means no "
+      "timeout.";
+      Real connecttimeout = 5;
+      Text _.autodoc.member.timeout = "Set the maximum time in seconds that "
+      "you allow the transfer operation to take. Do note that normally, name "
+      "lookups may take a considerable time and that limiting the operation "
+      "to less than a few minutes risks aborting perfectly normal operations. "
+      "This is an optional argument, it defaults to 0 which means no timeout.";
+      Real timeout = 0
+    ]]
+  ]];
+  Text _.autodoc.member.Upgrading = "Automated check and upgrade of "
+  "versions of TOL and packages";
+  NameBlock Upgrading =
+  [[
+    Text _.autodoc.member.TolVersion = "Automated check of TOL versions";
+    NameBlock TolVersion =
+    [[ 
+      Text _.autodoc.member.CheckAllowed = "Allows to check if there are new "
+      "versions";
+      Real CheckAllowed = True;
+      Text _.autodoc.member.MaxDaysOfDelay = "Number of days between checks";
+      Real MaxDaysOfDelay = 1
+    ]];
+    Text _.autodoc.member.TolPackage = "Automated upgrade of TOL packages";
+    NameBlock TolPackage =
+    [[ 
+      Text _.autodoc.member.LocalOnly = "Use only local repositories";
+      Real LocalOnly = 0;
+      Text _.autodoc.member.CaducityInMinutes = "Upgrade when local packages are "
+      "older than remote in this number of minutes";
+      Real CaducityInMinutes = 60;
+      Text _.autodoc.member.Repositories = "List of remote repositories";
+      Set Repositories = 
+      [[
+        "http://packages.tol-project.org/OfficialTolArchiveNetwork/repository.php"
+      ]] 
+    ]]
+  ]];
+  Text _.autodoc.member.Various = "Various";
+  NameBlock Various =
+  [[
+    Text _.autodoc.member.Recent = "Stored recent files";
+    NameBlock Recent =
+    [[
+      Text _.autodoc.member.Number = "Number of stored recent files";
+      Real Number = 8;
+      Text _.autodoc.member.Order = "Order criterium for recent files";
+      Text Order = "ByDate"
+    ]];
+    Text _.autodoc.member.Language = "User Language";
+    Text Language = "CASTELLANO";
+    Text _.autodoc.member.View = "Windows initial status";
+    NameBlock View =
+    [[
+      Text _.autodoc.member.ObjectInspector = "Show Object Inspector";
+      Real ObjectInspector = True;
+      Text _.autodoc.member.PrivateMembers = "Show private members in object inspector";
+      Real PrivateMembers = False
+    ]];
+    Text _.autodoc.member.Verbose = "Enables/disables some types of system messages";
+    NameBlock Verbose = 
+    [[
+      Text _.autodoc.member.IncludingFile = 
+      "Enables/disables system messages of type 'Including file ... '"+
+      "\n Changes in this option do not take effect until next TOL session";
+      Real IncludingFile = 1;
+      Text _.autodoc.member.IncludedFile = 
+      "Enables/disables system messages of type 'Included file ... '"+
+      "\n Changes in this option do not take effect until next TOL session";
+      Real IncludedFile = 1;
+      Text _.autodoc.member.ShowStackAtError = 
+      "Enables/disables call stack tracing of error messages"+
+      "\n Changes in this option do not take effect until next TOL session";
+      Real ShowStackAtError = 1;
+      Text _.autodoc.member.ShowStackAtWarning = 
+      "Enables/disables call stack tracing of warning messages"+
+      "\n Changes in this option do not take effect until next TOL session";
+      Real ShowStackAtWarning = 0;
+      Text _.autodoc.member.DownloadingUrl = 
+      "Enables/disables tracing of URL downloads"+
+      "\n Changes in this option do not take effect until next TOL session";
+      Real DownloadingUrl = 0
+    ]]
+  ]]
+]];
+
+
+

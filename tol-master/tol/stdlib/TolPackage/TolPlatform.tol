@@ -1,0 +1,141 @@
+//////////////////////////////////////////////////////////////////////////////
+// FILE   : TolPlatform.tol
+// PURPOSE: TOL platform related functions
+//////////////////////////////////////////////////////////////////////////////
+
+Text _.autodoc.member.TolPlatform = 
+  "Módulo de funciones para la gestión de las plataformas de TOL.";
+//////////////////////////////////////////////////////////////////////////////
+@LocalBlock TolPlatform = 
+//////////////////////////////////////////////////////////////////////////////
+[[
+  ////////////////////////////////////////////////////////////////////////////
+  Set ObtainInfo(Text platform) 
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    // platform: "<OperativeSystem>__<WordSize(bits)>__<Compiler>"
+    // Extrae la información de la variable 'plataform'
+    Set info = Tokenizer(Replace(platform, "__", "~"), "~");
+    Case(Card(info)>=3, info,
+      Card(info)==2, info<<[["ANY"]], 
+      Card(info)==1, info<<[["NN", "ANY"]], 
+      Card(info)==0, [["ANY", "NN", "ANY"]]
+    )
+  };
+ 
+  ////////////////////////////////////////////////////////////////////////////
+  Real IsCompatibleWith(Text platformA, Text platformB) 
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    // Comprueba si 'platformA' es compatible con 'platformB'
+    Set infoA = ObtainInfo(platformA);
+    Set infoB = ObtainInfo(platformB);
+    Real ok = If(infoB[1]=="ANY", True, infoB[1]==infoA[1]);
+    Real If(ok, ok := If(infoB[2]=="NN", True, infoB[2]==infoA[2]));
+    Real If(ok, ok := If(infoB[3]=="ANY", True, infoB[3]==infoA[3]));
+    ok
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text ObtainPlatform(Text os, Text wordsize, Text compiler)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Set info = ObtainInfo(Platform(?));
+    Set requiredInfo = SetOfText(
+      Case(os=="OWN", info[1], os=="ANY", "ANY", os==info[1], os, True, {
+        WriteLn("La versión y plataforma de TOL utilizada no es compatible "
+          <<"con el sistema operativo '"<<os<<"'.", "E");
+        Text ""
+      });
+      Case(wordsize=="OWN", info[2], wordsize=="NN", "NN", 
+        wordsize==info[2], wordsize, True, {
+        WriteLn("La versión y plataforma de TOL utilizada no es compatible "
+          <<"con los sistemas de '"<<wordsize<<"' bits.", "E");
+        Text ""
+      });
+      Case(compiler=="OWN", info[3], compiler=="ANY", "ANY", 
+        compiler==info[3], compiler, True, {
+        WriteLn("La versión y plataforma de TOL utilizada no es compatible "
+          <<"con la versión compilada con '"<<compiler<<"'.", "E"); 
+        Text ""
+      })
+    );
+    If(Real SetMin(EvalSet(requiredInfo,TextLength))==0, {
+      Real Stop;
+      Text ""
+    }, TextJoinWith(requiredInfo, "__"))
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text ObtainVariant(Text requiredPlatform)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    If(requiredPlatform=="ANY__NN__ANY", {
+      WriteLn("No es necesaria una variante.", "E");
+      Real Stop;
+      Text ""
+    }, {
+      Set info = ObtainInfo(requiredPlatform);
+      Set words = SetOfText(
+        Case(info[1]=="ANY", If(info[2]=="NN", "", "OS"),
+          info[1]=="WINDOWS", "Win", True, FirstToUpper(ToLower(info[1]))),
+        If(info[2]=="NN", "", info[2]),
+        If(info[3]=="ANY", "", info[3])
+      );
+      TextJoinWith(words, "")
+    })
+  };
+  
+  /*
+    This function must be invoked while building the package, similar to this:
+    
+    Set _.preload = TolPackage::TolPlatform::DefinePreload( ? );
+  */
+  ////////////////////////////////////////////////////////////////////////////
+  Set DefinePreload( Real void )
+  ////////////////////////////////////////////////////////////////////////////  
+  {
+    Text preloadFile = GetAbsolutePath("./") + ObtainDllFolder( ? ) + "/preload.tol";
+    Set If( FileExist( preloadFile ), Include( preloadFile ), Copy( Empty ) )
+  };
+
+    /*
+    This function must be invoked from the StartAction, similar to this:
+    
+    TolPackage::TolPlatform::PreloadLibraries( _.preload );
+  */
+  ////////////////////////////////////////////////////////////////////////////
+  Real PreloadLibraries( Set preload )
+  ////////////////////////////////////////////////////////////////////////////  
+  {
+    Text dir = GetAbsolutePath("./") + ObtainDllFolder( ? );
+    Real Group( "And", EvalSet( preload, Real( Text name )
+      {
+        Real LoadDynLib( dir + "/" + name )
+      } ), 1 )
+  };
+
+  ////////////////////////////////////////////////////////////////////////////
+  Text ObtainDllFolder(Real void)
+  ////////////////////////////////////////////////////////////////////////////
+  {
+    Text platform = Platform(?);
+    // La carpeta donde se ubican las dlls sigue determinados convenios
+    // por compatibilidad:
+    //   Para WINDOWS__32__MSVC se llamó:  "CppTools/Windows_x86_32"
+    //   Para LINUX__32__GNU se llamó:     "CppTools/Linux_x86_32"
+    //   (según GetHardSoftPlattform)
+    //   Para WINDOWS__32__GNU se eligió:  "CppTools/MinGW_32"
+    // Ahora para las versiones 64 bits es necesario repasar esto.
+    // Nos apoyaremos en el método Platform (y éste en PlatformInfo)
+    Case(platform=="WINDOWS__32__MSVC", "CppTools/Windows_x86_32",
+      platform=="LINUX__32__GNU", "CppTools/Linux_x86_32",
+      platform=="WINDOWS__32__GNU", "CppTools/MinGW_32",
+      True, Text "CppTools/" + Replace(_Platform_NaturalCase(?), "__", "_")
+      // Para WINDOWS__64__MSVC será:  "CppTools/Windows_64_MSVC"
+      // Para LINUX__64__GNU será:     "CppTools/Linux_64_GNU"
+      // Para WINDOWS__64__GNU será:   "CppTools/Windows_64_GNU"
+    ) + If(TextEndAt(Version,"{DEBUG}"), "_dbg", "")
+  }
+]];
+////////////////////////////////////////////////////////////////////////////

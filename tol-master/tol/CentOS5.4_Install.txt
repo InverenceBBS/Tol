@@ -1,0 +1,366 @@
+# -*- mode: sh -*-
+
+#
+# instrucciones para compilar tol/tolbase en centos 5.4 X86_64,
+# concretamente:
+#
+# Linux brw07.localbayes.es 2.6.18-164.el5 #1 SMP Thu Sep 3 03:28:30 EDT 2009 x86_64 x86_64 x86_64 GNU/Linux
+#
+# asumimos que existe una variable de entorno TOLROOT debajo de la cual 
+# compilaremos TOL
+#
+#  export TOLROOT=/home/tljava/toldevel
+
+#
+# incorporamos el repositorio EPEL
+#
+sudo rpm -Uvh http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-4.noarch.rpm
+sudo rpm -Uvh http://download.fedora.redhat.com/pub/epel/5/x86_64/epel-release-5-4.noarch.rpm
+
+# para poder hacer X11 remoto
+sudo yum install xauth
+
+# Instalamos los paquetes base
+sudo yum install bc unzip wget cvs subversion glibc-devel gcc-gfortran libstdc++-devel autoconf make bzip2-devel.i386 gsl-devel.i386 boost-devel.i386 mysql-devel.i386 postgresql-devel.i386 unixODBC-devel.i386 tcl-devel.i386 tk-devel.i386 tk.i386 openssl-devel.i386 zlib-devel.i386 libtool-ltdl-devel.i386 libX11-devel.i386
+
+#
+# instalamos atlas/blas/lapack, estos pasos parten de la base que el
+# procesador implementa las extensiones sse2, algo que puede saberse
+# ejecutando:
+#
+# cat /proc/cpuinfo | grep flags
+#
+# en nuestro caso las extensiones son sse2
+sudo yum install atlas-sse2.i386 atlas-sse2-devel.i386
+# creamos link a blas y lapack, para que gbla las encuentre
+sudo ln -s /usr/lib/atlas/liblapack.so.3 /usr/lib/liblapack.so
+sudo ln -s /usr/lib/atlas/libf77blas.so.3 /usr/lib/libblas.so
+
+#
+# creamos directorios de trabajo
+#
+mkdir ${TOLROOT}/tools
+mkdir ${TOLROOT}/contribs
+mkdir -p ${TOLROOT}/contribs/rpms
+
+#
+# instalamos R-project
+# quizas se puede instalar el R de 64 bits, ya que se usa en modo comando
+sudo yum install R-core.i386 R-devel.i386
+echo 'options(repos="http://cran.r-project.org")' > /tmp/Rinstall.R
+echo 'install.packages("coda")' >> /tmp/Rinstall.R
+echo 'install.packages("mcgibbsit")' >> /tmp/Rinstall.R
+echo 'install.packages("quadprog")' >> /tmp/Rinstall.R
+echo 'install.packages("Rglpk")' >> /tmp/Rinstall.R
+sudo R BATCH -f /tmp/Rinstall.R
+rm /tmp/Rinstall.R
+
+
+#
+# algunas compilaciones generan .so en /usr/local/lib, por tanto
+# preparo el sistema para ello.
+#
+echo '/usr/local/lib' | sudo tee -a /etc/ld.so.conf.d/tol.conf
+echo "Configuring dynamic linker run-time bindings ..."
+sudo /sbin/ldconfig
+
+#
+# instalo Boost Build 2: bjam
+#
+cd ${TOLROOT}/tools
+wget http://www.boost.org/boost-build2/boost-build.tar.bz2
+tar jxf boost-build.tar.bz2
+cd boost-build/engine
+./build.sh
+# lo copio en bin pues su debe encontrarlo para hacer tareas de instalacion
+sudo cp bin.linuxx86_64/bjam /usr/bin/.
+cd ..
+export BOOST_BUILD_PATH=`pwd`
+echo export BOOST_BUILD_PATH=`pwd` >> ${HOME}/.bash_profile
+#
+# instalo google sparse hash
+#
+cd ${TOLROOT}/contribs/rpms
+wget http://google-sparsehash.googlecode.com/files/sparsehash-1.9-1.noarch.rpm
+sudo yum localinstall --nogpgcheck sparsehash-1.9-1.noarch.rpm
+#
+# compilo ZipArchive
+#
+cd ${TOLROOT}/contribs
+mkdir ZipArchive
+cd ZipArchive
+wget http://packages.tol-project.org/linux/sources/ziparchive_src.zip
+unzip ziparchive_src.zip
+cp _projects/Linux/Makefile ZipArchive/.
+cd ZipArchive
+sed -e 's/$(CC)/g++ -m32 -fPIC/' -e 's/$(CCC)/gcc -m32 -fPIC/' < Makefile > Makefile.fix
+make -e -f Makefile.fix
+#
+# compilo fftw3
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/linux/sources/fftw-3.3.1.tar.gz
+tar zxf fftw-3.3.1.tar.gz
+cd fftw-3.3.1
+CC='gcc -m32' CXX='g++ -m32' ./configure --prefix=/usr/local/fftw-3.3.1
+make
+sudo make install
+
+#
+#
+# compilamos ANN
+#
+cd ${TOLROOT}/contribs/
+#wget http://www.cs.umd.edu/%7Emount/ANN/Files/1.1.2/ann_1.1.2.tar.gz
+wget http://packages.tol-project.org/linux/sources/ann_1.1.2.tar.gz
+tar zxf ann_1.1.2.tar.gz
+cd ann_1.1.2
+cp Make-config Make-config.original
+sed 's/"C++ = g++"/"C++ = g++ -m32"/' < Make-config.original > Make-config
+make -e linux-g++
+#
+# instalamos Cint: C interpretado
+#
+sudo yum install root-cint.i386
+
+#cd ${TOLROOT}/tol-devel/libs/
+#wget http://packages.tol-project.org/linux/sources/cint.tar.gz
+#tar zxf cint.tar.gz
+#cd cint
+#CFLAGS="-m32" LDFLAGS="-m32" ./configure --build=i686-unknown-linux-gnu
+#make ...
+
+#
+#
+# compilamos GBLA
+#
+cd ${TOLROOT}
+svn co https://www.tol-project.org/svn/gbla
+cd gbla/trunk/libltdl
+chmod +x configure
+CC='gcc -m32' CXX='g++ -m32' ./configure
+cd ..
+bjam address-model=32 release
+# verificamos que el codigo generado funciona, pasamos los test de blas
+cd examples/blas
+bjam address-model=32 release
+bin/gcc-4.1.2/release/address-model-32/blas1_check
+bin/gcc-4.1.2/release/address-model-32/blas2_check
+bin/gcc-4.1.2/release/address-model-32/blas3_check
+cd ${TOLROOT}/gbla/trunk
+sudo BOOST_BUILD_PATH=`echo $BOOST_BUILD_PATH` bjam address-model=32 release install
+#
+# compilamos SuiteSparse_TOL
+#
+cd ${TOLROOT}/contribs/
+wget http://packages.tol-project.org/linux/sources/SuiteSparse_TOL.tar.bz2
+tar jxf SuiteSparse_TOL.tar.bz2
+cd SuiteSparse_TOL/BB2/CHOLMOD
+bjam address-model=32 release
+sudo BOOST_BUILD_PATH=`echo $BOOST_BUILD_PATH` bjam address-model=32 release install
+
+#
+# El curl que trae CentOS 5.x es una version inferior a 7.19.6 que es
+# la minima que exige TclCurl, por tanto hay que commpilarlo desde los
+# fuentes. Observar que se compila con -m32
+# Probar que quizas el 5.4 si viene con curl 7.21.1!!!
+cd ${TOLROOT}/contribs
+#wget http://curl.haxx.se/download/curl-7.21.1.tar.bz2
+wget http://packages.tol-project.org/linux/sources/curl-7.21.1.tar.bz2
+tar jxf curl-7.21.1.tar.bz2
+cd curl-7.21.1
+CC='gcc -m32' CXX='g++ -m32' ./configure --with-zlib --with-ssl
+make -e
+sudo make install
+
+# instalo TCL 8.4
+cd ${TOLROOT}/contribs
+wget http://prdownloads.sourceforge.net/tcl/tcl8.4.19-src.tar.gz
+tar zxf tcl8.4.19-src.tar.gz
+cd tcl8.4.19/unix
+CC='gcc -m32' CXX='g++ -m32' ./configure --prefix=/usr/local/tcl8.4 --enable-threads --enable-shared
+make
+sudo make install
+
+# instalo TK 8.4
+cd ${TOLROOT}/contribs
+wget http://prdownloads.sourceforge.net/tcl/tk8.4.19-src.tar.gz
+tar zxf tk8.4.19-src.tar.gz
+cd tk8.4.19/unix/
+CC='gcc -m32' CXX='g++ -m32' ./configure --prefix=/usr/local/tcl8.4 --enable-threads --enable-shared --with-tcl=/usr/local/tcl8.4/lib
+make
+sudo make install
+
+# compilamos tclcurl, observar que se compila con -m32
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/linux/sources/TclCurl-7.19.6.tar.gz
+tar zxf TclCurl-7.19.6.tar.gz
+cd TclCurl-7.19.6
+CC='gcc -m32' CXX='g++ -m32' ./configure --with-tcl=/usr/local/tcl8.4/lib --with-curlprefix=/usr/local
+make -e
+sudo make install
+#
+# Compilamos TOL: vamos a por tol!!!!
+#
+cd ${TOLROOT}
+#sudo ln -s /usr/include /usr/include/postgresql
+svn co https://www.tol-project.org/svn/tolp
+cd tolp/trunk/tol
+cp prj-config.jam.centos54 prj-config.jam
+./bjam-gcc-release address-model=32
+./sudo_install address-model=32
+# verificamos que arranca bien 
+cd ..
+# esto falla ya que necesita de tolsh para descargar StdLib!!!!
+/usr/local/tol32/bin/tolcon -c"WriteLn(\"Hola soy TOL \")"
+
+# puede dar problemas al arrancar
+# cannot restore segment prot after reloc: Permission denied
+# sudo /usr/sbin/setenforce 0
+# vease http://www.appistry.com/community/forums/content/cannot-restore-segment-prot-after-reloc-permission-denied
+
+#
+# compilamos toltcl: el puente con tcl.
+#
+cd ${TOLROOT}/tolp/trunk/toltcl/release
+CC='gcc -m32' CXX='g++ -m32' ./default_config.sh --with-tol=/usr/local/tol32 --with-tcl=/usr/local/tcl8.4/lib
+make
+sudo make install
+
+# instalamos tcllib
+
+pushd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/tcllib_1_16.tar.gz
+tar zxf tcllib_1_16.tar.gz
+cd tcllib-tcllib_1_16/
+./configure --prefix=/usr/local/tcl8.4
+sudo make install
+
+# 
+# compilamos tolsh: la consola de tol con Tcl_EvalEx
+#
+pushd ${TOLROOT}/tolsh
+sudo cp -r tolsh.vfs/lib/app-tolsh /usr/local/tcl8.4/lib/.
+sudo cp -r tolsh.vfs/lib/tequila /usr/local/tcl8.4/lib/.
+sudo cp -r tolsh.vfs/lib/tlogger /usr/local/tcl8.4/lib/.
+sudo cp -r tolsh.vfs/lib/tolcomm /usr/local/tcl8.4/lib/.
+echo '#!/bin/bash' > /tmp/tolsh
+echo 'LD_LIBRARY_PATH=/usr/local/lib:/usr/local/unixODBC-2.3.0 BLAPI_BLAS_LIB=/usr/lib/atlas-sse2/libf77blas BLAPI_LAPACK_LIB=/usr/lib/atlas-sse2/liblapack TOLSessionPath=/usr/local/tol32/bin/tolsh /usr/local/tcl8.4/bin/tclsh8.4 /usr/local/tcl8.4/lib/app-tolsh/tolsh.tcl ${1+"$@"}' >> /tmp/tolsh
+chmod a+x /tmp/tolsh
+sudo mv /tmp/tolsh /usr/local/tol32/bin/tolsh
+
+#
+# Requerimientos de Tolbase
+#
+
+# install tcllib
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/tcllib-1.14.tar.gz
+tar zxf tcllib-1.14.tar.gz
+cd tcllib-1.14
+./configure --prefix=/usr/local/tcl8.4
+sudo make install
+
+# instalo tcllib
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/tklib-0.5.tar.gz
+tar zxf tklib-0.5.tar.gz
+cd tklib-0.5
+./configure --prefix=/usr/local/tcl8.4
+sudo make install
+
+# instalo bwidget
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/bwidget-1.9.6.tar.gz
+tar zxf bwidget-1.9.6.tar.gz
+sudo cp -r bwidget-1.9.6 /usr/local/tcl8.4/lib/.
+
+# instalo tkimg
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/tkimg1.4.tar.bz2
+tar jxf tkimg1.4.tar.bz2
+cd tkimg1.4
+CC='gcc -m32' CXX='g++ -m32' ./configure --with-tcl=/usr/local/tcl8.4/lib --with-tk=/usr/local/tcl8.4/lib --enable-threads
+make
+# dio un problema pues no encontraba dtplite
+sudo make install
+
+# instalo tktable
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/Tktable2.10.tar.gz
+tar zxf Tktable2.10.tar.gz
+cd Tktable2.10
+CC='gcc -m32' CXX='g++ -m32' ./configure --with-tcl=/usr/local/tcl8.4/lib --with-tk=/usr/local/tcl8.4/lib --enable-threads
+make
+sudo make install
+
+# instalo tktreectrl
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/tktreectrl-2.2.9.tar.gz
+tar zxf tktreectrl-2.2.9.tar.gz
+cd tktreectrl-2.2.9
+CC='gcc -m32' CXX='g++ -m32' ./configure --with-tcl=/usr/local/tcl8.4/lib --with-tk=/usr/local/tcl8.4/lib --enable-threads
+make
+sudo make install
+
+# tclodbc, hay que compilarlo de los fuentes
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/src/contrib/tclodbc.2.2.tgz
+tar zxf tclodbc.2.2.tgz
+cd tclodbc.2.2
+CC='gcc -m32' CXX='g++ -m32' ./configure --with-tcl=/usr/local/tcl8.4/lib --with-tk=/usr/local/tcl8.4/lib --enable-threads 
+# si el odbc que estamos usando es antiguo hay que desahabilitar el
+# uso de extensiones, esto lo hemos hecho con la siguientes instrucciones
+mv tclodbc.hxx tclodbc.ext.hxx
+sed -e 's/#define INCLUDE_EXTENSIONS/\/\/#define INCLUDE_EXTENSIONS/' < tclodbc.ext.hxx > tclodbc.hxx
+# corregimos el Makefile para que use g++ en el link
+#sed -e 's/gcc -m32 -pipe -shared/g++ -m32 -pipe -shared/' -e 's/-L\(.*\) -lodbc/-Wl,-R -Wl,\1 -lodbc -lodbcinst/' < Makefile > Makefile.fix
+sed -e 's/gcc -m32 -pipe -shared/g++ -m32 -pipe -shared/' -e 's/-lodbc/-lodbc -lodbcinst/' < Makefile > Makefile.fix
+make -f Makefile.fix
+make -f Makefile.fix pkgIndex.tcl-hand
+sudo make install
+
+# instalo blt
+cd ${TOLROOT}/contribs
+wget http://packages.tol-project.org/linux/binaries/blt2.4.tgz
+tar zxf blt2.4.tgz
+sudo cp -r blt2.4 /usr/local/tcl8.4/lib/.
+
+# copio los scripts de tolbase a /usr/local/tcl8.4
+sudo mkdir /usr/local/tcl8.4/lib/tolbase3.2
+cd ${TOLROOT}/tolp/trunk/tolbase
+sudo cp -r lib/* /usr/local/tcl8.4/lib/tolbase3.2/.
+sudo find /usr/local/tcl8.4/lib/tolbase3.2  -name .svn | sudo xargs rm -r
+
+# creo el script de lanzamiento de tolbase
+echo '#!/bin/sh' > /tmp/tolbase3.2
+echo 'LD_LIBRARY_PATH=/usr/local/lib:/usr/local/unixODBC-2.3.0/lib BLAPI_BLAS_LIB=/usr/lib/atlas-sse2/libf77blas BLAPI_LAPACK_LIB=/usr/lib/atlas-sse2/liblapack TOLSessionPath=/usr/local/tol32/bin/tolsh /usr/local/tcl8.4.20/bin/wish8.4 /usr/local/tcl8.4.20/lib/tolbase3.2/toltk/init_toltk.tcl ${1+"$@"}' >> /tmp/tolbase3.2
+chmod a+x /tmp/tolbase3.2
+sudo mv /tmp/tolbase3.2 /usr/local/tol32/bin/tolbase3.2
+
+
+#
+# RMTPS: nuestro servidor de procesos remotos
+#
+# el script  install.sh y sobre todo  los script de  arranque estan un
+#poco fragiles todavia y hay darle un poco mas de cabeza.
+
+cd ${TOLROOT}/tol-devel
+svn co https://www.tol-project.org/svn/rmtps
+sudo ./install.sh
+# editar /etc/rmtps.conf y luego recargar rmtpsd
+sudo /command/svc -d /service/rmtpsd
+sudo /command/svc -u /service/rmtpsd
+# para activar el servicio hay que ejecutar, esto tambien puede ir al
+# script install.sh
+sudo /sbin/chkconfig --add svscanboot
+
+#
+# MMS: instalacion del paquete MMS en la cuenta rmtpsd
+#
+
+# registrar el repositorio bptp
+tolsh -c"Real TolPackage::Client::AddRepository(\"http://packages.localbayes.es/BayesPrivateTolPackages/repository.php\");"
+
+# '#Require' se encarga de instalar MMS, necesita de conexion al
+# repositorio registrado.
+

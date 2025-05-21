@@ -1,0 +1,42 @@
+if( CMAKE_COMPILER_IS_GNUCC )
+  add_definitions( -Wimplicit-function-declaration )
+endif( )
+
+if( ODBC_FOUND )
+  add_library( tolodbc0 SHARED libtolodbc.c )
+  set_target_properties( tolodbc0 PROPERTIES PREFIX "" )
+  target_include_directories( tolodbc0 PRIVATE ${ODBC_INCLUDE_DIR} )
+  target_link_libraries( tolodbc0 ${ODBC_LIBRARIES} )
+  install( TARGETS tolodbc0 RUNTIME DESTINATION bin LIBRARY DESTINATION lib )
+endif( )
+
+if( MYSQL_FOUND )
+  add_library( tolmysql0 SHARED libtolmysql.c )
+  set_target_properties( tolmysql0 PROPERTIES PREFIX "" )
+  target_include_directories( tolmysql0 PRIVATE ${MYSQL_INCLUDE_DIRECTORIES} )
+  target_link_libraries( tolmysql0 ${MYSQL_LIBRARY} )
+  install( TARGETS tolmysql0 RUNTIME DESTINATION bin LIBRARY DESTINATION lib )
+endif( )
+
+if( PostgreSQL_FOUND )
+  add_library( tolpgsql0 SHARED libtolpgsql.c )
+  set_target_properties( tolpgsql0 PROPERTIES PREFIX "" )
+  target_include_directories( tolpgsql0 PRIVATE ${PostgreSQL_INCLUDE_DIRS} )
+  target_link_libraries( tolpgsql0 ${PostgreSQL_LIBRARY} )
+  install( TARGETS tolpgsql0 RUNTIME DESTINATION bin LIBRARY DESTINATION lib )
+endif( )
+
+include(CheckCSourceCompiles)
+CHECK_C_SOURCE_COMPILES(
+    "#include <math.h>\nint main() { int a = isnan(0e0); return 0; }\n"
+    HAVE_ISNAN )
+message( STATUS "HAVE_ISNAN = ${HAVE_ISNAN}")	
+add_library( tolsqlite0 SHARED libtolsqlite.c sqlite/sqlite3.c )
+target_compile_definitions( tolsqlite0 PRIVATE -DHAVE_ISNAN=${HAVE_ISNAN} )
+set_target_properties( tolsqlite0 PROPERTIES PREFIX "" )
+#if ( CMAKE_BUILD_TYPE STREQUAL "Release" )
+#  set_target_properties( tolsqlite0 PROPERTIES COMPILE_FLAGS "-O2" )
+#endif()
+target_include_directories( tolsqlite0 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/sqlite" )
+install( TARGETS tolsqlite0 RUNTIME DESTINATION bin LIBRARY DESTINATION lib )
+  

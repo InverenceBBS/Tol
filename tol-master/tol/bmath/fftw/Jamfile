@@ -1,0 +1,3 @@
+ln-H tol_fftw.h ;
+
+objects objs : fftw.cpp ;

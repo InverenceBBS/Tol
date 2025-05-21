@@ -1,0 +1,56 @@
+
+Polyn closeToCeroStationary(Polyn p)
+{
+  1-((1-p)*1.E-2)
+};
+
+
+Set For(1,Card(arima.0), Real(Real k)
+{
+  Polyn arima.0[k]->AR := closeToCeroStationary(arima.0[k]->AR);
+  Polyn arima.0[k]->MA := closeToCeroStationary(arima.0[k]->MA);
+  True
+});
+
+Real arima.t0 = Copy(Time);
+/* */
+Set arima.0.tr = Traspose(arima.0);
+Set ar.0 = arima.0.tr[2];
+Set ma.0 = arima.0.tr[3];
+Polyn dif = ARIMAGetDIF(arima.0);
+Real period = SetMax(arima.0.tr[1]);
+
+Set modDef.0 = ModelDef
+(
+  z, 1, 0, period, 0, dif,
+  ar.0,
+  ma.0,
+  Copy(Empty),
+  Copy(Empty)
+);
+
+//Parámetros de la estimación
+Set 
+[[
+  Real (NullInitResiduals:=0);
+  Real (MaxIter:=100);
+  Real (CGMaxIter:=5);
+  Real (DiffDist :=1.E-4);
+  Real (Tolerance:=1.E-5);
+  Real (RelativeTolerance:=1.E-5);
+  Real (DoStatistics:=True);
+//Text (JacobianMethod:="Numerical")
+  Text (JacobianMethod:="Analytical")
+]];
+
+Set  modEst.0 = Estimate(modDef.0);
+
+Set For(1,Card(arima.0), Real(Real k)
+{
+  Polyn arima.0[k]->AR := (modEst.0::Definition::AR)[k];
+  Polyn arima.0[k]->MA := (modEst.0::Definition::MA)[k];
+  True
+});
+/* */
+Real maxlh.time = Copy(Time)-arima.t0;
+
