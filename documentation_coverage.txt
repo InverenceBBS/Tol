@@ -1,3 +1,4 @@
+Coverage last updated: 2025-05-21
  ❌ ./tol-master/tolsh/tolsh.vfs/lib/tcllib1.10/page
 ❌ ./tol-master/tolsh/tolsh.vfs/lib/tcllib1.10/page/plugins
 ❌ ./tol-master/tolsh/tolsh.vfs/lib/tcllib1.10/inifile
@@ -770,8 +771,8 @@
 ✅ ./tol-master/tol_tests/gsl
 ❌ ./tol-master/tol_tests/gsl/ticket_001398
 ✅ ./tol-master/vbtol
-❌ ./tol-master/vbtol/win-vc9
-❌ ./tol-master/vbtol/win-vc8
+✅ ./tol-master/vbtol/win-vc9
+✅ ./tol-master/vbtol/win-vc8
 ✅ ./tol-master/vbtol/source
 ✅ ./tol-master/vbtol/vbasic
 ✅ ./tol-master/vbtol/tests
@@ -859,14 +860,14 @@
 ✅ ./tol-master/TestCMake/TestFileDownload
 ✅ ./tol-master/TestCMake/TestLAPACK
 ✅ ./tol-master/tolbaseBLT
-❌ ./tol-master/tolbaseBLT/tclconfig
-❌ ./tol-master/tolbaseBLT/cmake
-❌ ./tol-master/tolbaseBLT/cmake/modules
-❌ ./tol-master/tolbaseBLT/bin
-❌ ./tol-master/tolbaseBLT/win-VC9
-❌ ./tol-master/tolbaseBLT/win
-❌ ./tol-master/tolbaseBLT/tests
-❌ ./tol-master/tolbaseBLT/lib
+✅ ./tol-master/tolbaseBLT/tclconfig
+✅ ./tol-master/tolbaseBLT/cmake
+✅ ./tol-master/tolbaseBLT/cmake/modules
+✅ ./tol-master/tolbaseBLT/bin
+✅ ./tol-master/tolbaseBLT/win-VC9
+✅ ./tol-master/tolbaseBLT/win
+✅ ./tol-master/tolbaseBLT/tests
+✅ ./tol-master/tolbaseBLT/lib
 ❌ ./tol-master/tolbaseBLT/lib/mkWidgets1.3
 ❌ ./tol-master/tolbaseBLT/lib/mkWidgets1.3/demos
 ❌ ./tol-master/tolbaseBLT/lib/mkWidgets1.3/demos/images
@@ -918,9 +919,9 @@
 ❌ ./tol-master/tolbaseBLT/lib/toltk/images
 ❌ ./tol-master/tolbaseBLT/lib/toltk/msgs
 ❌ ./tol-master/tolbaseBLT/lib/rmtps_client
-❌ ./tol-master/tolbaseBLT/doc
-❌ ./tol-master/tolbaseBLT/generic
-❌ ./tol-master/tolbaseBLT/ThirdParty
+✅ ./tol-master/tolbaseBLT/doc
+✅ ./tol-master/tolbaseBLT/generic
+✅ ./tol-master/tolbaseBLT/ThirdParty
 ✅ ./tol-master/doc
 ✅ ./tol-master/doc/general
 ❌ ./tol-master/doc/general/mole-spec
@@ -939,8 +940,8 @@
 ❌ ./tol-master/doc/kernel/MemoryHandlers
 ❌ ./tol-master/doc/kernel/matrix
 ✅ ./tol-master/windows
-❌ ./tol-master/windows/NSIS
-❌ ./tol-master/windows/notes
+✅ ./tol-master/windows/NSIS
+✅ ./tol-master/windows/notes
 ✅ ./tol-master/windows/build_tools
 ❌ ./tol-master/windows/build_tools/build_tol_sdk
 ❌ ./tol-master/windows/build_tools/build_tol_sdk/root
@@ -1015,4 +1016,4 @@
 ✅ ./tol-master/tolbase/doc
 ✅ ./tol-master/tolbase/generic
 ✅ ./tol-master/tolbase/ThirdParty
-❌ ./assets
+✅ ./assets
