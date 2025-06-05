@@ -6,6 +6,8 @@
   - [BCTime](#bctime)
   - [BMatrixGen](#bmatrixgen)
   - [Monte Carlo Integrator](#monte-carlo-integrator)
+  - [BCTimeSet](#bctimeset)
+  - [BSet](#bset)
   - [Gibbs Sampler](#gibbs-sampler)
 - [Developer API Documentation](#developer-api-documentation)
   - [BCTime Internals](#bctime-internals)
@@ -13,6 +15,11 @@
   - [Monte Carlo Classes](#monte-carlo-classes)
   - [Gibbs Sampler Internals](#gibbs-sampler-internals)
 
+  - [Parser Overview](#parser-overview)
+  - [TolTcl Binding](#toltcl-binding)
+  - [TolSH Shell](#tolsh-shell)
+  - [RTOL R Binding](#rtol-r-binding)
+  - [TolJava Binding](#toljava-binding)
 ---
 
 ## Installation
@@ -110,6 +117,45 @@ Real UserFunc(Matrix X) {
 Set result = MonteCarloPlain(UserFunc, 3, Col(0,0,0), Col(Pi,Pi,Pi), 100000);
 ```
 
+### BCTimeSet
+Represents a collection of calendar instants with a shared granularity.
+
+```cpp
+class BCTimeSet {
+public:
+    bool includes(const BCTime& t) const;
+    BCTime succ(const BCTime& t);
+    BCTime pred(const BCTime& t);
+};
+```
+
+**Example**
+```cpp
+BCTimeSet holidays;
+if (holidays.includes(date)) {
+    // date is a holiday
+}
+```
+
+### BSet
+Container for heterogeneous objects indexed by name or position.
+
+```cpp
+class BSet {
+public:
+    BSyntaxObject* operator[](BInt index) const;
+    BSyntaxObject* operator[](const char* name) const;
+    BInt Card() const;
+};
+```
+
+**Example**
+```cpp
+BSet params;
+params.AddElement(code);
+BSyntaxObject* first = params[1];
+```
+
 ### Gibbs Sampler
 Tools for performing Gibbs sampling with customizable conditional densities.
 
@@ -117,6 +163,7 @@ Key class excerpt (from `gibbssampler.cpp`):
 ```cpp
 class FullConditional : public RealGSLFunctionR1 {
   static FullConditional* New(BSet* args, BUserMat* condpar);
+  virtual double Sample() = 0;
   virtual double Sample() = 0;
 };
 ```
@@ -166,6 +213,21 @@ BUserMat* ConditionalParameters();
 BUserDat* PreviousSampleDat();
 ```
 which give access to shared parameter matrices and previous samples.
+
+### Parser Overview
+High level C++ parser for the TOL language. The `bparser` module handles scanning and parsing of TOL source code. Key components include `tol_bscanner.h` for tokenization and `tol_bparser.h` for syntax analysis.
+
+### TolTcl Binding
+C and C++ library that exposes TOL functionality as Tcl commands. Applications embed it via `Toltcl_Init()` and then call `tol::<cmd>` procedures.
+
+### TolSH Shell
+Interactive Tcl/Tk shell packaged with Starkit. It provides command history and executes `.tol` scripts through the embedded interpreter.
+
+### RTOL R Binding
+C++ extension for the R language. Functions like `tol.eval()` run TOL code and exchange matrices or series with R vectors.
+
+### TolJava Binding
+Java and JNI layers for executing TOL from Java programs. Classes such as `TolInterpreter` wrap native calls implemented in `toljavajni.cpp`.
 
 ---
 
